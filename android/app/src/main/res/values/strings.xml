@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Reel</string>
+    <string name="title_activity_main">Reel</string>
+    <string name="package_name">com.reel.player</string>
+    <string name="custom_url_scheme">com.reel.player</string>
+</resources>
