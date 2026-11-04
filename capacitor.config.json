@@ -1,0 +1,19 @@
+{
+  "appId": "com.reel.player",
+  "appName": "Reel",
+  "webDir": "dist",
+  "backgroundColor": "#0B0B0F",
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#0B0B0F"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 0,
+      "backgroundColor": "#0B0B0F",
+      "showSpinner": false,
+      "androidScaleType": "CENTER_CROP",
+      "launchAutoHide": false
+    }
+  }
+}
