@@ -1,0 +1,91 @@
+.ex-page { padding-bottom: 28px; }
+.ex-pick { display: flex; gap: 14px; overflow-x: auto; scrollbar-width: none; padding: 6px 2px 10px; margin: 0 -2px; scroll-snap-type: x proximity; }
+.ex-pick::-webkit-scrollbar { display: none; }
+.ex-chip { flex: 0 0 66px; scroll-snap-align: start; display: flex; flex-direction: column; align-items: center; gap: 6px; background: none; border: 0; padding: 0; color: var(--text-dim); cursor: pointer; transition: transform .16s ease, color .2s; -webkit-tap-highlight-color: transparent; }
+.ex-chip:active { transform: scale(.93); }
+.ex-chip span { width: 58px; height: 58px; border-radius: 50%; background-size: cover; background-position: center; display: grid; place-items: center; font-size: 22px; font-weight: 800; color: rgba(255,255,255,.85); box-shadow: 0 0 0 2px transparent, 0 0 0 4px transparent; opacity: .62; transition: opacity .2s, box-shadow .2s, transform .2s; }
+.ex-chip b { max-width: 66px; font-size: 11.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ex-chip.on { color: var(--text); }
+.ex-chip.on span { opacity: 1; transform: scale(1.06); box-shadow: 0 0 0 2px var(--bg, #0c0c0f), 0 0 0 4px var(--accent); }
+.ex-block { margin-top: 8px; animation: exIn .4s cubic-bezier(.2,.8,.3,1) both; }
+.ex-hero { position: relative; display: flex; align-items: center; gap: 15px; padding: 18px 16px; border-radius: 22px; overflow: hidden; background: linear-gradient(135deg, hsl(var(--h) 45% 26%), hsl(calc(var(--h) + 40) 50% 14%)); box-shadow: 0 10px 28px rgba(0,0,0,.35); }
+.ex-hero-bg { position: absolute; inset: -20px; background-size: cover; background-position: center; filter: blur(26px) saturate(1.2); opacity: .42; transform: scale(1.1); }
+.ex-hero::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0,0,0,.35), rgba(0,0,0,.05)); }
+.ex-hero > * { position: relative; z-index: 1; }
+.ex-hero-ava { flex: none; width: 84px; height: 84px; border-radius: 50%; background-size: cover; background-position: center; display: grid; place-items: center; font-size: 32px; font-weight: 800; color: rgba(255,255,255,.9); box-shadow: 0 6px 18px rgba(0,0,0,.45), 0 0 0 3px rgba(255,255,255,.14); }
+.ex-hero-txt { flex: 1; min-width: 0; }
+.ex-hero-txt small { display: block; font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: rgba(255,255,255,.7); }
+.ex-hero-txt h2 { margin: 3px 0 4px; font-size: 26px; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; color: #fff; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.ex-hero-txt i { font-style: normal; font-size: 12px; color: rgba(255,255,255,.72); }
+.ex-retry { flex: none; width: 36px; height: 36px; border-radius: 50%; border: 0; background: rgba(255,255,255,.16); color: #fff; display: grid; place-items: center; cursor: pointer; }
+.ex-sec { margin-top: 20px; }
+.ex-listen { width: 100%; display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.ex-listen > span { font-size: 12px; font-weight: 700; letter-spacing: .04em; color: var(--text-faint); }
+.ex-listen > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.ex-listen-btn { display: flex; align-items: center; justify-content: center; text-align: center; padding: 13px 6px; white-space: nowrap; border-radius: 999px; font-size: 13px; font-weight: 700; color: #fff; text-decoration: none; transition: transform .14s ease; }
+.ex-listen-btn:active { transform: scale(.95); }
+.ex-listen-btn.deezer { background: #6b3fd4; } .ex-listen-btn.spotify { background: #1a9e4b; } .ex-listen-btn.ytm { background: #d4382f; }
+.ex-empty { margin: 2px 2px 6px; font-size: 12.5px; line-height: 1.4; color: var(--text-faint); }
+.ex-sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 0 2px 9px; }
+.ex-sec-head h3 { margin: 0; font-size: 13px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-faint); }
+.ex-sec-head span { font-size: 11.5px; color: var(--text-faint); }
+.ex-strip { display: flex; gap: 12px; overflow-x: auto; scrollbar-width: none; padding: 2px 2px 6px; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
+.ex-strip::-webkit-scrollbar { display: none; }
+.ex-card { flex: 0 0 116px; scroll-snap-align: start; display: flex; flex-direction: column; gap: 3px; text-align: left; background: none; border: 0; padding: 0; color: inherit; cursor: pointer; min-width: 0; -webkit-tap-highlight-color: transparent; animation: exIn .38s cubic-bezier(.2,.8,.3,1) both; transition: transform .16s ease; }
+.ex-card:active { transform: scale(.95); }
+.ex-art { width: 116px; height: 116px; border-radius: 14px; background-size: cover; background-position: center; display: grid; place-items: center; color: rgba(255,255,255,.8); box-shadow: 0 6px 16px rgba(0,0,0,.28); margin-bottom: 5px; }
+.ex-card.artist .ex-art { border-radius: 50%; }
+.ex-card.artist b:first-child { font-size: 38px; }
+.ex-card .ex-art b { font-size: 36px; font-weight: 800; }
+.ex-card > b { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ex-card.artist > b, .ex-card.artist > i { text-align: center; }
+.ex-card > i { font-style: normal; font-size: 11.5px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ex-card.sk .ex-art, .ex-card.sk b, .ex-card.sk i { background: linear-gradient(100deg, var(--surface-2) 30%, color-mix(in srgb, var(--surface-2) 55%, #fff 12%) 50%, var(--surface-2) 70%); background-size: 220% 100%; animation: exShimmer 1.3s linear infinite; box-shadow: none; }
+.ex-card.sk b { height: 12px; border-radius: 6px; width: 80%; } .ex-card.sk i { height: 10px; border-radius: 5px; width: 50%; }
+@keyframes exShimmer { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+@keyframes exIn { from { opacity: 0; transform: translateY(12px) scale(.97); } to { opacity: 1; transform: none; } }
+.ex-more { display: block; margin: 22px auto 0; padding: 11px 22px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text); font: inherit; font-weight: 700; font-size: 13.5px; cursor: pointer; transition: transform .14s ease; }
+.ex-more:active { transform: scale(.95); }
+.ex-info { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 4px 4px 14px; text-align: center; }
+.ex-info-art { width: 168px; height: 168px; border-radius: 18px; background-size: cover; background-position: center; display: grid; place-items: center; color: rgba(255,255,255,.8); box-shadow: 0 12px 30px rgba(0,0,0,.4); animation: exIn .4s cubic-bezier(.2,.8,.3,1) both; }
+.ex-info-art.artist { border-radius: 50%; }
+.ex-text { margin: 0; font-size: 14.5px; line-height: 1.55; text-align: left; color: var(--text); }
+.ex-attr { margin: 0; font-size: 11px; color: var(--text-faint); }
+.ex-tag { margin: 0; padding: 6px 12px; border-radius: 999px; background: var(--surface-2); font-size: 12px; font-weight: 600; color: var(--text-dim); }
+@media (prefers-reduced-motion: reduce) { .ex-card, .ex-info-art { animation: none; } .ex-card.sk .ex-art, .ex-card.sk b, .ex-card.sk i { animation: none; } }
+
+.ex-card:focus, .ex-card:focus-visible, .ex-chip:focus, .ex-chip:focus-visible { outline: none; }
+.ex-info { padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px)); }
+
+.ex-songs { width: 100%; text-align: left; margin-top: 2px; }
+.ex-songs h4 { display: flex; align-items: baseline; justify-content: space-between; margin: 0 2px 6px; font-size: 13px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-faint); }
+.ex-songs h4 span { font-size: 11.5px; letter-spacing: 0; }
+.ex-song { display: flex; align-items: center; gap: 12px; padding: 10px 6px; border-radius: 12px; color: var(--text); text-decoration: none; transition: background-color .15s ease, transform .12s ease; -webkit-tap-highlight-color: transparent; }
+a.ex-song:active { background: var(--surface-2); transform: scale(.985); }
+.ex-song em { flex: none; width: 20px; text-align: center; font-style: normal; font-size: 12.5px; font-weight: 700; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.ex-song-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.ex-song-txt b { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ex-song-txt i { font-style: normal; font-size: 11.5px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ex-song-own { flex: none; display: inline-flex; align-items: center; gap: 3px; text-decoration: none; font-size: 10.5px; font-weight: 700; padding: 3px 7px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); }
+.ex-song small { flex: none; font-size: 12px; color: var(--text-faint); font-variant-numeric: tabular-nums; min-width: 30px; text-align: right; }
+.ex-songs + .ex-text, .ex-songs ~ .ex-text { margin-top: 4px; }
+
+/* ---- songs you don't own: cover posters, not a list ---- */
+.ex-card.song { flex: 0 0 148px; }
+.ex-card.song .ex-art { width: 148px; height: 190px; border-radius: 18px; align-items: end; justify-items: stretch; position: relative; overflow: hidden; }
+.ex-card.song .ex-art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 38%, rgba(0,0,0,.82) 100%); }
+.ex-poster-txt { position: absolute; left: 0; right: 0; bottom: 0; z-index: 1; display: flex; flex-direction: column; gap: 2px; padding: 10px 11px 11px; text-align: left; color: #fff; min-width: 0; }
+.ex-poster-txt b { font-size: 13px !important; font-weight: 700; line-height: 1.22; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; }
+.ex-poster-txt i { font-style: normal; font-size: 11px; color: rgba(255,255,255,.75); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ex-sec-albums .ex-card { flex-basis: 132px; } .ex-sec-albums .ex-art { width: 132px; height: 132px; }
+
+/* ---- "playing now" banner ---- */
+.ex-now { position: relative; overflow: hidden; margin: 4px 0 6px; padding: 14px 0 6px 14px; border-radius: 24px; background: linear-gradient(150deg, hsl(var(--h) 45% 24%), hsl(calc(var(--h) + 50) 50% 12%)); }
+.ex-now-head { display: flex; align-items: center; gap: 12px; padding-right: 14px; margin-bottom: 12px; min-width: 0; }
+.ex-now-head > div { min-width: 0; }
+.ex-now-art { flex: none; width: 52px; height: 52px; border-radius: 12px; background-size: cover; background-position: center; box-shadow: 0 6px 16px rgba(0,0,0,.35); }
+.ex-now small { font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; color: rgba(255,255,255,.6); }
+.ex-now h2 { margin: 2px 0 1px; font-size: 16px; line-height: 1.2; color: #fff; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ex-now i { font-style: normal; font-size: 11.5px; color: rgba(255,255,255,.65); }
+.ex-now .ex-strip { padding-right: 14px; }
+.ex-now-pic { display: none; }

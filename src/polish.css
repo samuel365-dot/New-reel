@@ -1,0 +1,151 @@
+/* Phone polish — loaded on top of the existing styles (higher specificity so it always wins). */
+
+/* Most played artists: slightly smaller circle, photo always fills it (faces sit in the upper part of portraits) */
+.reel-root.is-mobile .top-artist-circle { width: 92px; justify-self: center; }
+.reel-root.is-mobile .top-artist-circle .avatar {
+  width: 72px !important; height: 72px !important; aspect-ratio: 1 / 1; flex-shrink: 0;
+  background-size: cover !important; background-position: center 25% !important; background-repeat: no-repeat !important;
+  background-color: var(--surface-2);
+}
+.reel-root.is-mobile .top-artist-circle .rank { top: -2px; left: -2px; }
+
+/* Dialogs: centred in the visible screen (not pushed down), with room around them for the system bars */
+.reel-root.is-mobile .modal-scrim {
+  position: fixed !important; inset: 0 !important;
+  display: flex !important; align-items: center !important; justify-content: center !important;
+  padding: max(12px, env(safe-area-inset-top, 0px)) 12px max(12px, env(safe-area-inset-bottom, 0px)) !important;
+  box-sizing: border-box;
+}
+.reel-root.is-mobile .modal-box {
+  margin: auto !important; width: 100% !important; max-width: 420px !important; max-height: calc(100% - 8px) !important;
+  border-radius: 24px !important; border: 1px solid var(--line) !important; animation: modalPopIn .2s var(--ease) !important;
+}
+.reel-root.is-mobile .modal-box:has(.modal-sub)::before { display: none !important; }
+@keyframes modalPopIn { from { transform: scale(.94); opacity: 0; } to { transform: none; opacity: 1; } }
+.reel-root.is-mobile .share-modal { margin: auto !important; width: 100%; max-width: 420px; max-height: calc(100% - 8px) !important; overflow-y: auto; box-sizing: border-box; }
+.reel-root.is-mobile .share-pick { width: 100% !important; max-width: 100% !important; box-sizing: border-box; }
+
+/* ---------- bottom sheets: let the swipe-down gesture move them ---------- */
+.reel-root.is-mobile .sheet { animation-fill-mode: backwards !important; will-change: transform; overscroll-behavior: contain; }
+
+/* ---------- Player view: the line being sung, under the cover ---------- */
+.live-ly {
+  position: absolute; left: -14px; right: -14px; top: calc(100% - 18px); height: 84px; z-index: 0; pointer-events: none; overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 52%); mask-image: linear-gradient(to bottom, transparent 0, #000 52%);
+}
+.is-mobile .cover-art-flip .cover-art-big { position: relative; z-index: 2; }   /* the old line slides up BEHIND the cover */
+.live-ly-in { position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: center; padding: 0 22px 8px; box-sizing: border-box; text-align: center; }
+.live-ly-in span { font-size: 18px; line-height: 1.25; font-weight: 800; color: #fff; text-shadow: 0 1px 8px rgba(0,0,0,.35); max-width: 340px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.live-ly-enter { animation: liveLyIn .5s cubic-bezier(.2,.8,.3,1) both; }
+.live-ly-out { animation: liveLyOut .34s cubic-bezier(.4,0,.8,.6) both; }
+@keyframes liveLyIn { from { opacity: 0; transform: translateY(34px); } to { opacity: 1; transform: translateY(0); } }
+/* the line that leaves starts dim, is gone after ~35 % of the time and only drifts up a little */
+@keyframes liveLyOut { 0% { opacity: .42; transform: translateY(0); filter: blur(0); } 35% { opacity: 0; } 100% { opacity: 0; transform: translateY(-22px); filter: blur(3px); } }
+@media (prefers-reduced-motion: reduce) { .live-ly-enter, .live-ly-out { animation-duration: .01s; } }
+
+/* ---------- Lyrics view (phone): title + artist on top, smaller left-aligned lines, no empty band ---------- */
+.np-lyr-head { padding: 2px 22px 6px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.np-lyr-head b { font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.np-lyr-head i { font-style: normal; font-size: 12.5px; color: rgba(255,255,255,.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.now-playing.np-m.np-v-lyrics .np-body { padding-top: 0 !important; }
+.now-playing.np-m.np-v-lyrics .lyrics-synced {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 22px, #000 calc(100% - 34px), transparent 100%) !important;
+  mask-image: linear-gradient(to bottom, transparent 0, #000 22px, #000 calc(100% - 34px), transparent 100%) !important;
+}
+.is-mobile .now-playing.np-m.np-v-lyrics .lyrics-synced::before { display: none !important; }   /* the black band at the top */
+.now-playing.np-m.np-v-lyrics .lyrics-list { padding-top: 6px !important; padding-bottom: 55% !important; }
+.now-playing.np-m.np-v-lyrics .lyrics-line {
+  font-size: 22px !important; line-height: 1.22 !important; font-weight: 800 !important; letter-spacing: -.01em;
+  text-align: left !important; padding: 0 !important; margin: 0 0 18px !important;
+  color: rgba(255,255,255,.4) !important; opacity: 1 !important; filter: none !important;
+}
+.now-playing.np-m.np-v-lyrics .lyrics-line.active { color: #fff !important; }
+.is-mobile .np-share-pill { height: auto !important; min-height: 0 !important; font-size: 12.5px !important; font-weight: 700 !important; padding: 9px 15px !important; gap: 7px !important; margin: 0 0 8px 22px !important; align-self: flex-start; }
+.is-mobile .np-share-pill svg { width: 14px; height: 14px; }
+
+/* ---------- Playlists page (phone) ---------- */
+.pl-label { padding: 18px 2px 8px; font-size: 11.5px; font-weight: 700; letter-spacing: .06em; color: var(--text-faint, #8b8b95); }
+.pl-strip { display: flex; gap: 10px; overflow-x: auto; padding: 0 0 4px; scrollbar-width: none; }
+.pl-strip::-webkit-scrollbar { display: none; }
+.pl-smart { flex: 0 0 122px; height: 98px; border: 0; border-radius: 14px; padding: 12px; box-sizing: border-box; color: #fff; text-align: left; display: flex; flex-direction: column; justify-content: space-between; cursor: pointer; }
+.pl-smart span { display: flex; flex-direction: column; }
+.pl-smart b { font-size: 12.5px; font-weight: 700; }
+.pl-smart i { font-style: normal; font-size: 10.5px; color: rgba(255,255,255,.72); margin-top: 1px; }
+.pl-rows { display: flex; flex-direction: column; }
+.pl-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; background: none; border: 0; color: inherit; text-align: left; cursor: pointer; width: 100%; }
+.pl-thumb { width: 54px; height: 54px; border-radius: 10px; flex: none; background-size: cover; background-position: center; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,.85); }
+.pl-thumb-new { border: 1.5px dashed var(--line, #3a3a44); color: var(--text-dim, #8b8b95); background: none; }
+.pl-row-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pl-row-txt b { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pl-row-txt .pl-new-name { color: var(--accent); }
+.pl-row-txt i { font-style: normal; font-size: 12px; color: var(--text-faint, #8b8b95); }
+.pl-chev { color: var(--text-faint, #6c6c76); flex: none; }
+
+/* queue header (phone): shuffle button beside Clear, same pill style */
+.m-head-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+.m-pill.m-pill-icon { width: 46px; padding: 0; display: grid; place-items: center; }
+.m-pill.m-pill-icon svg { color: var(--accent); }
+
+/* back button on the More pages that hide the top bar (Queue, Stats, Library health, Free music) */
+.m-head .m-back { flex: none; align-self: center; width: 40px; height: 40px; border-radius: 50%; border: 0; background: var(--surface-2, rgba(255,255,255,.08)); color: var(--text); display: grid; place-items: center; cursor: pointer; margin-right: -2px; }
+.m-head .m-back + div { flex: 1; min-width: 0; }
+
+/* ---------- Player: long song titles keep clear of the lyric line under the cover ---------- */
+.is-mobile .np-meta { padding-top: 6px; }
+.is-mobile .np-meta .t { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.25; overflow-wrap: anywhere; }
+.is-mobile .np-meta-long { padding-top: 8px; }
+.is-mobile .np-meta-long .t { font-size: 17px; }
+
+/* ---------- Playlists (phone): the smart squares fit the screen, no sideways scrolling for three ---------- */
+.reel-root.is-mobile .pl-strip { display: grid !important; grid-auto-flow: column; grid-auto-columns: calc((100% - 20px) / 3) !important; gap: 10px !important; overflow-x: auto; }
+.reel-root.is-mobile .pl-smart { flex: none !important; width: auto !important; min-width: 0; padding: 11px !important; }
+.reel-root.is-mobile .pl-smart b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.reel-root.is-mobile .pl-smart span { min-width: 0; }
+
+/* ---------- Smoother scrolling and taps (phone) ---------- */
+.reel-root.is-mobile { -webkit-tap-highlight-color: transparent; }
+.reel-root.is-mobile .page-body { overscroll-behavior-y: contain; }
+.reel-root.is-mobile .m-row { content-visibility: auto; contain-intrinsic-size: auto 64px; }   /* off-screen rows cost nothing */
+.reel-root.is-mobile .page-fade { animation: pageRise .28s cubic-bezier(.2,.8,.3,1) both !important; }
+@keyframes pageRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.reel-root.is-mobile .pl-smart, .reel-root.is-mobile .more-row, .reel-root.is-mobile .ex-tile { transition: transform .14s ease, background-color .2s ease; }
+.reel-root.is-mobile .pl-smart:active, .reel-root.is-mobile .more-row:active { transform: scale(.97); }
+@media (prefers-reduced-motion: reduce) { .reel-root.is-mobile .page-fade { animation: none !important; } }
+
+/* ---------- Player (phone): the sung line sits IN the layout, right under the cover ----------
+   Cover + line are one group centred in the free space, so the line is never too high (touching the cover)
+   nor too low (touching the title), whatever the title length or screen height. */
+.is-mobile .cover-art-flip { display: flex; flex-direction: column; align-items: center; }
+.is-mobile .cover-art-flip .cover-art-big { order: 1; width: min(78vw, 340px, 40vh); height: min(78vw, 340px, 40vh); }
+.is-mobile .live-ly { order: 2; position: relative; left: auto; right: auto; top: auto; flex: none; width: min(88vw, 380px); height: 66px; margin-top: 10px;
+  -webkit-mask-image: none; mask-image: none; }
+.is-mobile .live-ly-in { align-items: center; padding: 0 8px; }
+.is-mobile .live-ly-in span { -webkit-line-clamp: 2; font-size: 17px; }
+
+/* ---------- Motion you can see (phone): rows glide in, everything answers a touch ---------- */
+.reel-root.is-mobile .m-row { transition: background-color .18s ease, transform .14s ease; }
+.reel-root.is-mobile .m-row:active { transform: scale(.985); background: var(--surface-2); }
+.reel-root.is-mobile .m-row:nth-child(-n+14) { animation: rowGlide .42s cubic-bezier(.2,.8,.3,1) both; }
+.reel-root.is-mobile .m-row:nth-child(1){animation-delay:0s}.reel-root.is-mobile .m-row:nth-child(2){animation-delay:.03s}.reel-root.is-mobile .m-row:nth-child(3){animation-delay:.06s}.reel-root.is-mobile .m-row:nth-child(4){animation-delay:.09s}.reel-root.is-mobile .m-row:nth-child(5){animation-delay:.12s}.reel-root.is-mobile .m-row:nth-child(6){animation-delay:.15s}.reel-root.is-mobile .m-row:nth-child(7){animation-delay:.18s}.reel-root.is-mobile .m-row:nth-child(8){animation-delay:.21s}.reel-root.is-mobile .m-row:nth-child(9){animation-delay:.24s}.reel-root.is-mobile .m-row:nth-child(10){animation-delay:.27s}.reel-root.is-mobile .m-row:nth-child(11){animation-delay:.3s}.reel-root.is-mobile .m-row:nth-child(12){animation-delay:.33s}.reel-root.is-mobile .m-row:nth-child(13){animation-delay:.36s}.reel-root.is-mobile .m-row:nth-child(14){animation-delay:.39s}
+@keyframes rowGlide { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
+.reel-root.is-mobile .m-fav { transition: transform .18s cubic-bezier(.3,1.6,.5,1), color .2s; }
+.reel-root.is-mobile .m-fav:active { transform: scale(1.35); }
+.reel-root.is-mobile .nav-item { transition: transform .16s ease, color .2s ease; }
+.reel-root.is-mobile .nav-item:active { transform: scale(.9); }
+.reel-root.is-mobile .player-bar:active { transform: scale(.992); transition: transform .12s ease; }
+@media (prefers-reduced-motion: reduce) { .reel-root.is-mobile .m-row:nth-child(-n+14) { animation: none; } }
+
+
+
+
+/* ---------- Player (phone): Vinyl/Cover button never touches the artwork ----------
+   The cover area (.cover-stage) is positioned over the whole player body, so the button used to float over it.
+   Fix: the button is pinned top-centre and the cover area reserves room for it, so cover + sung line are
+   centred in the space BELOW the button (checked at several screen heights). */
+.is-mobile .now-playing:not(.np-v-lyrics) .np-view-toggle { position: absolute !important; left: 50% !important; right: auto !important; top: 8px !important; transform: translateX(-50%) !important; margin: 0 !important; }
+.is-mobile .now-playing:not(.np-v-lyrics) .cover-stage { padding-top: 58px; padding-bottom: 8px; box-sizing: border-box; }
+.is-mobile .now-playing:not(.np-v-lyrics) .np-body:has(.vinyl-stage) { padding-top: 54px; }
+/* cover size comes from the free height of the player body (100cqh), so it fits any screen: room for the button above, and for the sung line below when there is one */
+.is-mobile .now-playing:not(.np-v-lyrics) .np-body:has(.cover-stage) { container-type: size; }
+.is-mobile .now-playing:not(.np-v-lyrics) .cover-art-big { width: max(120px, min(78vw, 340px, calc(100cqh - 74px))); height: max(120px, min(78vw, 340px, calc(100cqh - 74px))); }
+.is-mobile .now-playing:not(.np-v-lyrics) .cover-art-flip:has(.live-ly) .cover-art-big { width: max(120px, min(78vw, 340px, calc(100cqh - 150px))); height: max(120px, min(78vw, 340px, calc(100cqh - 150px))); }
