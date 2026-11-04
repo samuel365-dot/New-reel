@@ -6,9 +6,12 @@ import android.content.ContentUris;
 import android.content.Intent;
 import android.provider.Settings;
 import androidx.core.app.NotificationManagerCompat;
+import android.content.Context;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.os.PowerManager;
+import android.webkit.WebView;
 import android.media.MediaMetadataRetriever;
 import android.net.Uri;
 import android.os.Build;
@@ -56,12 +59,42 @@ public class ReelMediaPlugin extends Plugin {
         ReelPlaybackService.setSink(new ReelPlaybackService.Sink() {
             @Override
             public void onAction(String action, long positionMs) {
+                wakeWebView();
                 JSObject o = new JSObject();
                 o.put("action", action);
                 if (positionMs >= 0) o.put("position", positionMs / 1000.0);
                 notifyListeners("mediaAction", o);
             }
         });
+    }
+
+    /**
+     * A button was pressed while the app is in the background (screen off, paused for minutes): Android may have
+     * throttled the WebView and the CPU. Wake both for a few seconds so the app can actually start the audio.
+     */
+    private void wakeWebView() {
+        try {
+            PowerManager pm = (PowerManager) getContext().getSystemService(Context.POWER_SERVICE);
+            if (pm != null) {
+                PowerManager.WakeLock wl = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "reel:mediaAction");
+                wl.acquire(8000L);
+            }
+        } catch (Exception ignored) {
+            // no wake lock: the press is still delivered
+        }
+        try {
+            if (getBridge() != null && getBridge().getWebView() != null) {
+                final WebView wv = getBridge().getWebView();
+                wv.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        wv.resumeTimers();
+                    }
+                });
+            }
+        } catch (Exception ignored) {
+            // the WebView is gone
+        }
     }
 
     @Override

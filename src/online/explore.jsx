@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, Loader2, ExternalLink, Compass, Disc3, Mic2, Music2, RefreshCw, Check } from "lucide-react";
 import { useOnline } from "./settings.js";
+import { genreOfTrack } from "./suggest.js";
 import { topArtistsFrom, ownedArtistSet, missingAlbums, similarArtists, artistPicture, popularSongs, similarSongs, describe, listenLinks, songsFor } from "./explore-data.js";
 import { norm } from "./match.js";
 import { Sheet, NeedsFeature } from "./ui-tools.jsx";
@@ -183,12 +184,23 @@ function InfoSheet({ item, owned, have, onClose }) {
   );
 }
 
-export function ExplorePage({ onBack, library, playCounts, favorites, currentTrack, onOpenSettings }) {
+export function ExplorePage({ onBack, library, playCounts, favorites, currentTrack, enrichment = {}, onOpenSettings }) {
   const o = useOnline();
   const on = o.enabled && o.features.explore;
   const [sel, setSel] = useState(null);
   const [info, setInfo] = useState(null);
-  const artists = useMemo(() => topArtistsFrom({ library, playCounts, favorites }, 12), [library.length, playCounts, favorites]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [genre, setGenre] = useState("");
+  // genres found for the library (from the online lookup), most common first — a quick way to switch the whole page
+  const genres = useMemo(() => {
+    const n = new Map();
+    for (const t of library) { const g = genreOfTrack(t, enrichment); if (g) n.set(g, (n.get(g) || 0) + 1); }
+    return [...n.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(x => x[0]);
+  }, [library.length, enrichment]); // eslint-disable-line react-hooks/exhaustive-deps
+  const artists = useMemo(() => {
+    const pool = genre ? library.filter(t => genreOfTrack(t, enrichment) === genre) : library;
+    const top = topArtistsFrom({ library: pool, playCounts, favorites }, 12);
+    return top.length ? top : topArtistsFrom({ library, playCounts, favorites }, 12);
+  }, [library.length, playCounts, favorites, genre, enrichment]); // eslint-disable-line react-hooks/exhaustive-deps
   const owned = useMemo(() => ownedArtistSet(library), [library.length]); // eslint-disable-line react-hooks/exhaustive-deps
   const haveTitles = useMemo(() => new Set(library.map(t => norm(t.title))), [library.length]); // eslint-disable-line react-hooks/exhaustive-deps
   const head = <div className="m-head">{onBack && <button className="m-back" onClick={onBack} aria-label="Back"><ChevronLeft size={22} /></button>}<div><h1>Explore</h1><p>Made from what you listen to</p></div></div>;
@@ -200,6 +212,12 @@ export function ExplorePage({ onBack, library, playCounts, favorites, currentTra
     <div className="ex-page">
       {head}
       {currentTrack && !currentTrack.remote && currentTrack.artist && !/^unknown/i.test(currentTrack.artist) && <NowBlock track={currentTrack} library={library} onOpen={(it) => setInfo({ ...it, _own: null })} />}
+      {genres.length > 0 && (
+        <div className="ex-genres" role="tablist" aria-label="Genre">
+          <button className={`ex-genre${!genre ? " on" : ""}`} onClick={() => { setGenre(""); setSel(null); }}>All</button>
+          {genres.map(g => <button key={g} className={`ex-genre${genre === g ? " on" : ""}`} onClick={() => { setGenre(g); setSel(null); }}>{g}</button>)}
+        </div>
+      )}
       <div className="ex-pick" role="tablist" aria-label="Choose an artist">
         {artists.map(a => <Chip key={a.name} artist={a} on={a.name === current.name} onPick={() => setSel(a.name)} />)}
       </div>

@@ -51,6 +51,10 @@ async function toThumbDataUrl(url, size = 256) {
 async function fileExists(path) {
   try { await Filesystem.stat({ path, directory: Directory.Data }); return true; } catch { return false; }
 }
+// The activity file is optional (older installs keep everything in the library file); a broken one is ignored.
+async function readActivity() {
+  try { return (await fileExists(ACTIVITY_FILE)) ? await readJson(ACTIVITY_FILE) : {}; } catch { return {}; }
+}
 async function readJson(path) {
   const res = await Filesystem.readFile({ path, directory: Directory.Data, encoding: Encoding.UTF8 });
   return JSON.parse(res.data);
@@ -72,7 +76,7 @@ async function loadStore() {
     return { ...DEFAULT_DATA }; // first launch
   }
   try {
-    const data = { ...DEFAULT_DATA, ...(await readJson(STORE_FILE)) };
+    const data = { ...DEFAULT_DATA, ...(await readJson(STORE_FILE)), ...(await readActivity()) };
     rememberKnown(data.tracks);
     return data;
   } catch (err) {
@@ -88,27 +92,47 @@ async function loadStore() {
   }
 }
 
-// Saves are chained so two overlapping writes can never interleave; the file is
-// written to a temp name and renamed so a crash mid-write can't corrupt it.
+// Saves are chained so two overlapping writes can never interleave; a file is written to a temp name and renamed
+// so a crash mid-write can't corrupt it.
+//
+// The data is split in two files: the library (big, changes rarely) and the activity (play history, counts, position:
+// small relative to the library, changes all the time). The big file is only rewritten when it really changed.
+const ACTIVITY_FILE = "reel-activity.json";
+const ACTIVITY_KEYS = ["playHistory", "moodReactions", "playCounts", "recentlyPlayed", "playerState"];
 let saveChain = Promise.resolve();
 let lastBackupAt = 0;
+let lastMainJson = null;
+
+async function atomicWrite(path, json) {
+  await Filesystem.writeFile({ path: path + ".tmp", directory: Directory.Data, encoding: Encoding.UTF8, data: json });
+  try {
+    await Filesystem.rename({ from: path + ".tmp", to: path, directory: Directory.Data, toDirectory: Directory.Data });
+  } catch {
+    // some Android versions refuse to rename over an existing file: write the real file directly instead
+    await Filesystem.writeFile({ path, directory: Directory.Data, encoding: Encoding.UTF8, data: json });
+  }
+}
+
 function saveStore(data) {
   rememberKnown(data.tracks);
-  const json = JSON.stringify(data);
+  const main = { ...data }, act = {};
+  for (const k of ACTIVITY_KEYS) { if (k in main) { act[k] = main[k]; delete main[k]; } }
+  const mainJson = JSON.stringify(main), actJson = JSON.stringify(act);
   saveChain = saveChain
-    .then(() => Filesystem.writeFile({ path: STORE_FILE + ".tmp", directory: Directory.Data, encoding: Encoding.UTF8, data: json }))
     .then(async () => {
-      // one rolling backup copy of the last good file (at most every 10 minutes, and once per launch)
-      if (Date.now() - lastBackupAt > 10 * 60 * 1000 && (await fileExists(STORE_FILE))) {
-        try {
-          await Filesystem.copy({ from: STORE_FILE, to: BAK_FILE, directory: Directory.Data, toDirectory: Directory.Data });
-          lastBackupAt = Date.now();
-        } catch { /* a missing backup must never block saving */ }
+      if (mainJson !== lastMainJson) {
+        // one rolling backup copy of the last good library file (at most every 10 minutes, and once per launch)
+        if (Date.now() - lastBackupAt > 10 * 60 * 1000 && (await fileExists(STORE_FILE))) {
+          try {
+            await Filesystem.copy({ from: STORE_FILE, to: BAK_FILE, directory: Directory.Data, toDirectory: Directory.Data });
+            lastBackupAt = Date.now();
+          } catch { /* a missing backup must never block saving */ }
+        }
+        await atomicWrite(STORE_FILE, mainJson);
+        lastMainJson = mainJson;
       }
+      await atomicWrite(ACTIVITY_FILE, actJson);
     })
-    .then(() => Filesystem.rename({ from: STORE_FILE + ".tmp", to: STORE_FILE, directory: Directory.Data, toDirectory: Directory.Data })
-      // some Android versions refuse to rename over an existing file: write the real file directly instead
-      .catch(() => Filesystem.writeFile({ path: STORE_FILE, directory: Directory.Data, encoding: Encoding.UTF8, data: json })))
     .catch((err) => console.error("Reel: failed to save data file", err));
   return saveChain;
 }

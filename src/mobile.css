@@ -532,7 +532,10 @@
 
 /* ---- sort control: the arrow says what it does ---- */
 .is-mobile .sort-dir { display: inline-flex; align-items: center; gap: 4px; padding: 0 9px; height: 34px; font-size: 11.5px; white-space: nowrap; flex: none; }
-.is-mobile .sort-select { min-width: 0; max-width: 112px; }
+.is-mobile .sort-select { min-width: 0; width: 92px; max-width: 92px; height: 34px; font-size: 12px; padding: 0 6px; }
+.is-mobile .topbar { flex-wrap: wrap; }
+.is-mobile .topbar > div:first-child { min-width: 0; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.is-mobile .topbar .btn-accent { flex: none; }
 
 .spin, .on-spin { animation: reel-spin 1s linear infinite; }
 @keyframes reel-spin { to { transform: rotate(360deg); } }
@@ -594,6 +597,28 @@
 .is-mobile .m-row.searching .m-txt .t { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .is-mobile .m-row .t mark { background: color-mix(in srgb, var(--accent) 32%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
 /* settings rows never push their controls off-screen */
-.is-mobile .settings-row { flex-wrap: wrap; gap: 8px 10px; }
-.is-mobile .settings-row-label { flex: 1 1 120px; min-width: 0; }
-.is-mobile .settings-row .density-toggle { flex: 0 1 auto; max-width: 100%; flex-wrap: wrap; }
+/* rows with a long label or many options: label on its own line, options below (never squeezed) */
+.is-mobile .settings-row.stack-row { flex-wrap: wrap; gap: 10px 12px; }
+.is-mobile .settings-row.stack-row .settings-row-label { flex: 0 0 100%; }
+.is-mobile .settings-row.stack-row .density-toggle { flex: 0 1 auto; max-width: 100%; }
+.is-mobile .settings-row.stack-row .density-opt { padding: 9px 14px; font-size: 14px; }
+.is-mobile .settings-accent .settings-row-label { flex: 0 0 100%; }
+.is-mobile .settings-accent .accent-row { justify-content: flex-start; gap: 12px; }
+
+/* long playlist names wrap inside the hero instead of running off the screen */
+.is-mobile .playlist-hero .playlist-hero-title { white-space: normal; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow-wrap: anywhere; font-size: 22px; line-height: 1.2; max-width: 100%; text-overflow: clip; }
+.is-mobile .playlist-hero-info { width: 100%; min-width: 0; }
+.is-mobile .playlist-hero-title-input { width: 100%; font-size: 20px; }
+.is-mobile .playlist-hero-cover { width: 132px; height: 132px; }
+.is-mobile .playlist-hero-actions { justify-content: center; }
+
+/* generated playlist cover: the group's own covers as a 2x2 / 1x2 mosaic */
+.is-mobile .mosaic { display: grid; width: 100%; height: 100%; overflow: hidden; }
+.is-mobile .mosaic > span { background-size: cover; background-position: center; min-width: 0; min-height: 0; }
+.is-mobile .mosaic-4 { grid-template: 1fr 1fr / 1fr 1fr; gap: 2px; }
+.is-mobile .mosaic-2 { grid-template-columns: 1fr 1fr; gap: 2px; }
+.is-mobile .mosaic-1 > span { grid-area: 1 / 1; }
+.is-mobile .mosaic-0 { place-items: center; color: rgba(255,255,255,.85); }
+.is-mobile .mfy-cover { padding: 0; overflow: hidden; }
+.is-mobile .mfy-hero-cover { overflow: hidden; }
+.is-mobile .new-badge { display: inline-block; margin-left: 6px; padding: 1px 5px; border-radius: 6px; background: var(--accent); color: #17120a; font-size: 9px; font-weight: 800; letter-spacing: .05em; vertical-align: middle; }

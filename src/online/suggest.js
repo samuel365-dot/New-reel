@@ -8,10 +8,12 @@ import { getJSON, enc } from "./net.js";
 import { norm, similarity } from "./match.js";
 import { dominantColors } from "../dominantColor.js";
 
-export const MIN_GROUP = 8, MAX_ACTIVE = 6, REFRESH_DAYS = 90;
+export const MIN_GROUP = 6, MAX_ACTIVE = 14, REFRESH_DAYS = 90;
 const unknown = (a) => !a || /^(unknown|local files)/i.test(String(a).trim());
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/** The genre Deezer gave for this song's album (or its artist), "" when unknown. */
+export const genreOfTrack = (t, enrichment) => (enrichment[unknown(t.album) ? `a|${norm(t.artist)}` : `${norm(t.artist)}|${norm(t.album)}`] || {}).genre || "";
 export const albumKey = (t) => `${norm(t.artist)}|${norm(t.album)}`;
 export const artistKey = (t) => `a|${norm(t.artist)}`;
 
@@ -57,6 +59,14 @@ export async function enrichOne({ artist, album }) {
   }
   if (!albumData && !artistId) return { genre: "", year: "", related: [], fetchedAt: Date.now() };   // known to be unknown: do not ask again for 90 days
   const rel = artistId ? await related(artistId).catch(() => []) : [];
+  // No album (or the album was not found): take the genre and year from the artist's most popular song's album.
+  if (!albumData && artistId) {
+    try {
+      const top = await getJSON(`https://api.deezer.com/artist/${artistId}/top?limit=1`, { ttlMs: 30 * 864e5 });
+      const albumId = top?.data?.[0]?.album?.id;
+      if (albumId) { const full = await getJSON(`https://api.deezer.com/album/${albumId}`, { ttlMs: 30 * 864e5 }); if (full && !full.error) albumData = full; }
+    } catch { /* genre stays empty */ }
+  }
   return {
     genre: albumData?.genres?.data?.[0]?.name || "",
     year: (albumData?.release_date || "").slice(0, 4),
@@ -66,14 +76,16 @@ export async function enrichOne({ artist, album }) {
 }
 
 /** Runs the lookups one at a time (the services rate-limit); stops when `signal.stop` is set. */
-export async function enrichLibrary(library, enrichment, { onEntry, signal = {}, max = 40 } = {}) {
+export async function enrichLibrary(library, enrichment, { onEntry, onProgress, signal = {}, max = 400 } = {}) {
   const todo = pendingEnrichment(library, enrichment).slice(0, max);
   let done = 0;
+  onProgress?.(0, todo.length);
   for (const item of todo) {
     if (signal.stop) break;
     try {
       const e = await enrichOne(item);
       onEntry?.(item.key, e); done++;
+      onProgress?.(done, todo.length);
     } catch { break; /* offline or refused: try again at the next run */ }
     await sleep(260);
   }
@@ -119,6 +131,19 @@ export function buildGroups({ library, enrichment, moods = [], lastVisit = 0, di
     if (ids.size > head.ids.length) add(`circle:${norm(head.name)}`, "circle", `If you like ${head.name}`, [...ids]);
   }
 
+  // one artist's own songs ("Best of …") and eras, even when the genre is unknown
+  for (const a of byArtist.values()) if (a.ids.length >= MIN_GROUP) add(`artist:${norm(a.name)}`, "artist", `${a.name} essentials`, a.ids);
+  const byDecade = new Map();
+  for (const t of tracks) { const d = decadeOf(info(t).year); if (d) (byDecade.get(d) || byDecade.set(d, []).get(d)).push(t.id); }
+  for (const [d, ids] of byDecade) add(`decade:${d}`, "era", `Songs from the ${d}s`, ids);
+  const byAlbum = new Map();
+  for (const t of tracks) { if (unknown(t.album) || unknown(t.artist)) continue; const k = albumKey(t); (byAlbum.get(k) || byAlbum.set(k, { name: t.album, ids: [] }).get(k)).ids.push(t.id); }
+  for (const [k, al] of byAlbum) add(`album:${k}`, "album", `${al.name} (full album)`, al.ids);
+  const longOnes = tracks.filter((t) => (t.duration || 0) >= 330).map((t) => t.id);
+  add("long", "length", "Long listens", longOnes);
+  const shortOnes = tracks.filter((t) => (t.duration || 0) > 0 && t.duration <= 170).map((t) => t.id);
+  add("short", "length", "Quick hits", shortOnes);
+
   // moods the user tagged by hand
   for (const m of moods) add(`mood:${m.key}`, "mood", `${m.label} vibes`, m.trackIds);
 
@@ -146,9 +171,18 @@ export function buildGroups({ library, enrichment, moods = [], lastVisit = 0, di
 }
 
 /* -------------------------------- covers -------------------------------- */
-const loadImg = (src) => new Promise((res) => { const i = new Image(); i.crossOrigin = "anonymous"; i.onload = () => res(i); i.onerror = () => res(null); i.src = src; });
+const loadImg = (src) => new Promise((res) => { const i = new Image(); i.crossOrigin = "anonymous"; i.onload = () => res(i); i.onerror = () => res(null); setTimeout(() => res(null), 4000); i.src = src; });   // a stalled image never blocks adding a playlist
 
-/** 2x2 mosaic of up to four different covers on the group's dominant colour -> small JPEG data URL (or null). */
+/** The (up to four) different cover images of a group, straight from the songs — shown as a mosaic with plain CSS,
+    so it needs no canvas and never fails on a protected image. */
+export function coverArts(tracks, max = 4) {
+  const out = [], seen = new Set();
+  for (const t of tracks) { if (t && t.art && !seen.has(t.art)) { seen.add(t.art); out.push(t.art); if (out.length >= max) break; } }
+  return out;
+}
+
+/** 2x2 mosaic of up to four different covers on the group's dominant colour -> small JPEG data URL (or null).
+    Used when a suggestion becomes a real playlist (its cover is stored with it). */
 export async function mosaicCover(tracks, size = 320) {
   const arts = [], seen = new Set();
   for (const t of tracks) { if (t.art && !seen.has(t.art)) { seen.add(t.art); arts.push(t.art); if (arts.length >= 4) break; } }

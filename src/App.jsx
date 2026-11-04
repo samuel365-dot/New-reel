@@ -12,7 +12,7 @@ import { OnlineSettings, PlaybackSettings } from "./online/ui-settings.jsx";
 import { FixSheet, ArtistPhotosSheet, HealthPage, ImportSheet, ArtistExtras, RecommendationsCard, shareText, playlistShareText } from "./online/ui-tools.jsx";
 import { ExplorePage } from "./online/explore.jsx";
 import { dominantColorsCached } from "./dominantColor.js";
-import { enrichLibrary, buildGroups, mosaicCover, pendingEnrichment, MIN_GROUP } from "./online/suggest.js";
+import { enrichLibrary, buildGroups, mosaicCover, coverArts, pendingEnrichment, MIN_GROUP } from "./online/suggest.js";
 import { useOnline, featureOn, getOnline } from "./online/settings.js";
 import { buildRecommendations } from "./online/match.js";
 import { findLyricsFor } from "./online/lyrics.js";
@@ -1306,9 +1306,9 @@ function stableTrackId(path, size) {
 
 // What the sort arrow means, in words.
 function sortDirLabel(key, dir) {
-  if (key === "dateAdded") return dir === "desc" ? "Newest first" : "Oldest first";
+  if (key === "dateAdded") return dir === "desc" ? "Newest" : "Oldest";
   if (key === "duration") return dir === "desc" ? "Longest" : "Shortest";
-  return dir === "asc" ? "A → Z" : "Z → A";
+  return dir === "asc" ? "A–Z" : "Z–A";
 }
 
 // Day buckets use the phone's local date (toISOString is UTC and puts evening plays on the wrong day).
@@ -1322,6 +1322,17 @@ function artistGroupKey(name) {
   let s = fold(name).replace(/\s*[([]?\s*(?:feat\.?|featuring|ft\.?)\s.*$/i, "");
   s = s.replace(/^the\s+/, "").replace(/\s+/g, " ").trim();
   return s || fold(name);
+}
+
+// A playlist cover made of the group's own covers (plain CSS grid — no canvas, so it always shows).
+function Mosaic({ arts, seed, className }) {
+  const n = arts.length >= 4 ? 4 : arts.length >= 2 ? 2 : arts.length;
+  if (n === 0) return <span className={`mosaic mosaic-0 ${className || ""}`} style={{ background: coverGradient(seed) }}><ListMusic size={26} strokeWidth={1.4} /></span>;
+  return (
+    <span className={`mosaic mosaic-${n} ${className || ""}`}>
+      {arts.slice(0, n).map((a, i) => <span key={i} style={{ backgroundImage: `url("${a}")` }} />)}
+    </span>
+  );
 }
 
 function shuffleArray(arr) {
@@ -2765,6 +2776,8 @@ export default function App() {
   const prevVisitRef = useRef(0);
   const [openSuggestionId, setOpenSuggestionId] = useState(null);
   const [enriching, setEnriching] = useState(false);
+  const [enrichProgress, setEnrichProgress] = useState(null);   // { done, total } while the library is being looked up
+  const enrichRef = useRef({});                                 // latest enrichment map (updated per lookup)
 
   // selection
   const [selectedIds, setSelectedIds] = useState(() => new Set());
@@ -2869,9 +2882,11 @@ export default function App() {
 
   const activeLyricsLineIndex = useMemo(() => {
     if (!lyricsIsSynced) return -1;
+    // the audio element's own clock, not the (throttled) position state: the highlight is never late
+    const livePos = engineRef.current ? engineRef.current.getPosition() : position;
     let idx = -1;
     for (let i = 0; i < currentLyrics.lines.length; i++) {
-      if (currentLyrics.lines[i].time_sec <= position) idx = i;
+      if (currentLyrics.lines[i].time_sec <= livePos) idx = i;
       else break;
     }
     return idx;
@@ -3716,7 +3731,8 @@ export default function App() {
       setUnlockedMilestones(data.unlockedMilestones || []);
       setSuggestions(Array.isArray(data.suggestions) ? data.suggestions : []);
       setDismissedSeeds(Array.isArray(data.dismissedSeeds) ? data.dismissedSeeds : []);
-      setEnrichment(data.enrichment && typeof data.enrichment === "object" ? data.enrichment : {});
+      enrichRef.current = data.enrichment && typeof data.enrichment === "object" ? data.enrichment : {};
+      setEnrichment(enrichRef.current);
       setSuggestMeta(data.suggestMeta || { builtAt: 0, libCount: 0, enrCount: 0 });
       prevVisitRef.current = data.lastVisitAt || 0;       // "Fresh finds" = songs added since the previous visit
       setLastVisitAt(Date.now());
@@ -4127,12 +4143,31 @@ export default function App() {
   const mediaCmdRef = useRef(null);
   mediaCmdRef.current = {
     play: () => {
-      if (!isPlayingRef.current) { setIsPlaying(true); return; }
-      // The UI believes it is playing but the audio was silenced behind our back: start the engine directly.
+      // Start the audio right here instead of waiting for a React render: after minutes of pause with the screen
+      // off, rendering is throttled but the engine can still be started directly. One retry covers a slow wake-up.
       const eng = engineRef.current, tr = currentTrackRef.current;
-      if (eng && tr && !eng.isPlaying) eng.resume(tr).then((dur) => { if (dur) setDuration(dur); }).catch(() => setIsPlaying(false));
+      if (!eng || !tr) { setIsPlaying(true); return; }
+      if (eng.isPlaying) { setIsPlaying(true); return; }
+      isPlayingRef.current = true;
+      const start = (attempt) => eng.resume(tr).then((dur) => {
+        if (dur === null) return;
+        if (dur) setDuration(dur);
+        setPlaybackError(null);
+        setIsPlaying(true);
+      }).catch((err) => {
+        if (attempt < 2) { setTimeout(() => start(attempt + 1), 500); return; }
+        console.error("Reel: resume from the notification failed", err);
+        setPlaybackError(`Couldn't resume "${tr.title}" — ${err?.message || "unknown error"}`);
+        setIsPlaying(false);
+      });
+      start(0);
     },
-    pause: () => { if (isPlayingRef.current) setIsPlaying(false); },
+    pause: () => {
+      const eng = engineRef.current;
+      if (eng && eng.isPlaying) eng.pause();   // silence first, then let the UI catch up
+      isPlayingRef.current = false;
+      setIsPlaying(false);
+    },
     next: () => doAdvance(1),
     prev: () => goPrev(),
     seek: (sec) => seekToSec(sec),
@@ -4487,9 +4522,17 @@ export default function App() {
     const sig = { stop: false };
     const timer = setTimeout(async () => {
       setEnriching(true);
-      await enrichLibrary(pool, snapRef.current.enrichment, { signal: sig, onEntry: (k, e) => setEnrichment(prev => ({ ...prev, [k]: e })) }).catch(() => {});
-      if (!sig.stop) setEnriching(false);
-    }, 5000);
+      // keep going until every album/artist is looked up (or the service stops answering)
+      for (let round = 0; round < 6 && !sig.stop; round++) {
+        const done = await enrichLibrary(pool, enrichRef.current, {
+          signal: sig,
+          onEntry: (k, e) => { enrichRef.current = { ...enrichRef.current, [k]: e }; setEnrichment(enrichRef.current); },
+          onProgress: (d, t) => setEnrichProgress({ done: d, total: t }),
+        }).catch(() => 0);
+        if (!done || pendingEnrichment(pool, enrichRef.current).length === 0) break;
+      }
+      if (!sig.stop) { setEnriching(false); setEnrichProgress(null); }
+    }, 4000);
     return () => { sig.stop = true; clearTimeout(timer); setEnriching(false); };
   }, [storeLoaded, suggestOn, library.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -4500,31 +4543,27 @@ export default function App() {
     if (!storeLoaded || !suggestOn) return;
     const pool = library.filter(t => !t.remote);
     const m = snapRef.current.suggestMeta;
-    const due = snapRef.current.suggestions.length === 0 || Math.abs(pool.length - m.libCount) >= 5 || Date.now() - m.builtAt > 864e5 || enrCount - m.enrCount >= 10;
+    const due = snapRef.current.suggestions.length === 0 || Math.abs(pool.length - m.libCount) >= 5 || Date.now() - m.builtAt > 864e5 || enrCount - m.enrCount >= 10 || m.v !== 2 || (!enriching && enrCount !== m.enrCount);
     if (!due || pool.length < MIN_GROUP) return;
     let dead = false;
     const timer = setTimeout(async () => {
       const groups = buildGroups({ library: pool, enrichment, moods: moodForGroups, lastVisit: prevVisitRef.current, dismissed: dismissedSeeds, takenNames: playlists.map(p => p.name) });
-      const byId = new Map(pool.map(t => [t.id, t]));
       const old = new Map(snapRef.current.suggestions.map(s => [s.seedKey, s]));
-      const next = [];
-      for (const g of groups) {
-        const prev = old.get(g.seedKey);
-        let cover = prev?.cover || null;
-        if (!cover) cover = await mosaicCover(g.trackIds.map(id => byId.get(id)).filter(Boolean));
-        if (dead) return;
-        next.push({ id: prev?.id || crypto.randomUUID(), name: g.name, kind: g.kind, seedKey: g.seedKey, trackIds: g.trackIds, cover });
-      }
+      // the cover is drawn from the songs' own covers at display time (see Mosaic), so nothing heavy is stored
+      const next = groups.map(g => ({ id: old.get(g.seedKey)?.id || crypto.randomUUID(), name: g.name, kind: g.kind, seedKey: g.seedKey, trackIds: g.trackIds }));
       if (dead) return;
       setSuggestions(next);
-      setSuggestMeta({ builtAt: Date.now(), libCount: pool.length, enrCount });
+      setSuggestMeta({ builtAt: Date.now(), libCount: pool.length, enrCount, v: 2 });
     }, 1500);
     return () => { dead = true; clearTimeout(timer); };
-  }, [storeLoaded, suggestOn, library.length, enrCount, dismissedSeeds]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [storeLoaded, suggestOn, library.length, enrCount, enriching, dismissedSeeds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const visibleSuggestions = useMemo(() => {
-    const have = new Set(library.map(t => t.id));
-    return suggestions.map(s => ({ ...s, trackIds: s.trackIds.filter(id => have.has(id)) })).filter(s => s.trackIds.length >= 3);
+    const byId = new Map(library.map(t => [t.id, t]));
+    return suggestions.map(s => {
+      const ids = s.trackIds.filter(id => byId.has(id));
+      return { ...s, trackIds: ids, arts: coverArts(ids.map(id => byId.get(id))) };
+    }).filter(s => s.trackIds.length >= 3);
   }, [suggestions, library]);
   const openSuggestion = openSuggestionId ? visibleSuggestions.find(s => s.id === openSuggestionId) || null : null;
   const forgetSuggestion = (s) => {
@@ -4532,8 +4571,14 @@ export default function App() {
     setDismissedSeeds(prev => [...prev.filter(d => d.seed !== s.seedKey), { seed: s.seedKey, size: s.trackIds.length }]);
     setOpenSuggestionId(null);
   };
-  const addSuggestion = (s) => {
-    setPlaylists(prev => [...prev, { id: crypto.randomUUID(), name: s.name, trackIds: s.trackIds, coverImage: s.cover || null }]);
+  const addSuggestion = async (s) => {
+    const id = crypto.randomUUID();
+    // the playlist keeps a real picture: a 2×2 mosaic of its covers (first cover if the mosaic can't be drawn)
+    const tracks = s.trackIds.map(tid => libraryAll.find(t => t.id === tid)).filter(Boolean);
+    let cover = null;
+    try { cover = await mosaicCover(tracks); } catch { /* use the first cover */ }
+    if (!cover) cover = coverArts(tracks, 1)[0] || null;
+    setPlaylists(prev => [...prev, { id, name: s.name, trackIds: s.trackIds, coverImage: cover }]);
     forgetSuggestion(s);
     pushToast(`Added “${s.name}” to your playlists`);
   };
@@ -4926,7 +4971,7 @@ export default function App() {
                 {selecting && <SelCircle on={selected} />}
                 <TrackThumb track={t} isPlaying={playing && isPlaying} size={52} />
                 <div className="m-txt">
-                  <span className="t">{page === "library" && query.trim() ? highlightParts(t.title, query).map((p, k) => p.hit ? <mark key={k}>{p.text}</mark> : p.text) : t.title}</span>
+                  <span className="t">{page === "library" && query.trim() ? highlightParts(t.title, query).map((p, k) => p.hit ? <mark key={k}>{p.text}</mark> : p.text) : t.title}{prevVisitRef.current > 0 && (t.dateAdded || 0) > prevVisitRef.current && <span className="new-badge">NEW</span>}</span>
                   <span className="a">
                     <span className="a-name">{t.artist}</span>
                     {m && <span className="mood-badge m-mood" style={{ color: m.color, background: `${m.color}22` }}><m.icon size={10} /> {m.label}</span>}
@@ -5274,7 +5319,7 @@ export default function App() {
 
         <div className="page-body page-fade" key={page + (openPlaylistId || "")}>
           {page === "discover" && (
-            <ExplorePage onBack={() => setPage("more")} currentTrack={currentTrack} library={library} playCounts={playCounts} favorites={favorites} onOpenSettings={() => setSettingsOpen(true)} />
+            <ExplorePage onBack={() => setPage("more")} currentTrack={currentTrack} enrichment={enrichment} library={library} playCounts={playCounts} favorites={favorites} onOpenSettings={() => setSettingsOpen(true)} />
           )}
           {page === "health" && (
             <HealthPage onBack={() => setPage("more")} library={library} lyricsMap={lyricsMap} playCounts={playCounts}
@@ -5408,12 +5453,12 @@ export default function App() {
                 </button>
               ) : visibleSuggestions.length > 0 ? (
                 <>
-                  <div className="pl-label mfy-label">MADE FOR YOU{enriching && <span className="mfy-sync"><Loader2 size={11} className="spin" /> reading your library online</span>}</div>
+                  <div className="pl-label mfy-label">MADE FOR YOU{enriching && <span className="mfy-sync"><Loader2 size={11} className="spin" /> reading your library online{enrichProgress ? ` · ${enrichProgress.done}/${enrichProgress.total}` : ""}</span>}</div>
                   <div className="mfy-strip">
                     {visibleSuggestions.map(s => (
                       <div key={s.id} className="mfy-card">
-                        <button className="mfy-cover" style={s.cover ? { backgroundImage: `url(${s.cover})` } : { background: coverGradient(s.seedKey) }} onClick={() => setOpenSuggestionId(s.id)} aria-label={`Open ${s.name}`}>
-                          {!s.cover && <ListMusic size={26} strokeWidth={1.4} />}
+                        <button className="mfy-cover" onClick={() => setOpenSuggestionId(s.id)} aria-label={`Open ${s.name}`}>
+                          <Mosaic arts={s.arts} seed={s.seedKey} />
                         </button>
                         <button className="mfy-add" onClick={() => addSuggestion(s)} aria-label={`Add ${s.name} to my playlists`}><Plus size={16} strokeWidth={2.4} /></button>
                         <button className="mfy-x" onClick={() => forgetSuggestion(s)} aria-label="Not interested"><X size={13} strokeWidth={2.4} /></button>
@@ -5427,7 +5472,7 @@ export default function App() {
                 <p className="mfy-note">
                   {library.filter(t => !t.remote).length < MIN_GROUP
                     ? "Add a few more songs and Reel will propose playlists made from them."
-                    : enriching ? <><Loader2 size={12} className="spin" /> Reading your library online to make playlists…</> : "Playlists made for you will appear here once your songs have been looked up."}
+                    : enriching ? <><Loader2 size={12} className="spin" /> Reading your library online to make playlists…{enrichProgress ? ` ${enrichProgress.done}/${enrichProgress.total}` : ""}</> : "Playlists made for you will appear here once your songs have been looked up."}
                 </p>
               )}
 
@@ -5475,9 +5520,8 @@ export default function App() {
             const why = { genre: "Songs from your library with this genre", decade: "Genre and era, from your own songs", circle: "Artists that sound alike, all from your library", mood: "Songs you tagged with this mood", new: "Songs you added recently", script: "Grouped by language" }[openSuggestion.kind] || "Made from your songs";
             return (
               <>
-                <button className="btn" style={{ marginBottom: 14 }} onClick={() => setOpenSuggestionId(null)}>← All playlists</button>
                 <div className="mfy-hero">
-                  <div className="mfy-hero-cover" style={openSuggestion.cover ? { backgroundImage: `url(${openSuggestion.cover})` } : { background: coverGradient(openSuggestion.seedKey) }} />
+                  <div className="mfy-hero-cover"><Mosaic arts={openSuggestion.arts} seed={openSuggestion.seedKey} /></div>
                   <div className="mfy-hero-info">
                     <div className="mfy-eyebrow"><Sparkles size={12} /> Made for you</div>
                     <h2>{openSuggestion.name}</h2>
@@ -5497,7 +5541,6 @@ export default function App() {
 
           {page === "playlists" && openSmart && (
             <>
-              <button className="btn" style={{ marginBottom: 18 }} onClick={() => setOpenSmartKey(null)}>← All playlists</button>
               <div className="playlist-hero">
                 <div className="playlist-hero-backdrop" style={{ background: coverGradient(openSmartKey) }} />
                 <div className="playlist-hero-content">
@@ -5549,7 +5592,6 @@ export default function App() {
 
           {page === "playlists" && openMood && (
             <>
-              <button className="btn" style={{ marginBottom: 18 }} onClick={() => setOpenMoodKey(null)}>← All playlists</button>
               <div className="playlist-hero">
                 <div className="playlist-hero-backdrop" style={{ background: `linear-gradient(135deg, ${openMood.color}, #0D0D10)` }} />
                 <div className="playlist-hero-content">
@@ -5591,7 +5633,6 @@ export default function App() {
 
           {page === "playlists" && openPlaylist && (
             <>
-              <button className="btn" style={{ marginBottom: 18 }} onClick={() => setOpenPlaylistId(null)}>← All playlists</button>
 
               <div className="playlist-hero">
                 <div
@@ -6497,7 +6538,7 @@ export default function App() {
                     else setNotifHelpOpen(true);
                   }}>Lock-screen player &amp; notifications <ChevronRight size={18} /></button>
                   <button className="settings-link" onClick={cleanUpTitles}>Clean up titles <ChevronRight size={18} /></button>
-                  <div className="settings-row">
+                  <div className="settings-row stack-row">
                     <span className="settings-row-label">Skip clips under</span>
                     <div className="density-toggle">
                       {[[0, "Off"], [15, "15s"], [30, "30s"], [60, "1m"]].map(([v, l]) => (
@@ -6505,7 +6546,7 @@ export default function App() {
                       ))}
                     </div>
                   </div>
-                  <div className="settings-row">
+                  <div className="settings-row stack-row">
                     <span className="settings-row-label">Featured artists</span>
                     <div className="density-toggle">
                       <button className={`density-opt${featIn === "title" ? " selected" : ""}`} onClick={() => setFeatInState("title")}>In title</button>
