@@ -24,7 +24,7 @@ const DEFAULT_DATA = {
   lastWeeklyRecapWeek: null, unlockedMilestones: [],
   playerState: { currentTrackId: null, shuffle: false, repeatMode: "off", volume: 0.8, lastPositionSec: 0 },
   settings: {
-    accentKey: "amber", density: "comfortable", design: "classic", trackView: "auto", npView: "vinyl",
+    accentKey: "amber", density: "comfortable", design: "aurora", trackView: "auto", npView: "vinyl",
     theme: "dark", seekBarStyle: "line",
     minSeconds: 15,
   },

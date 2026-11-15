@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, Check, X, Loader2, Play, Search, Trash2, Wand2, Lock, Upload, Download, AlertTriangle, Music2, ChevronRight, ExternalLink, Sparkles, Cloud, Copy, Copy as CopyIcon, UserX, Disc3, ImageOff, TextCursorInput, FileX } from "lucide-react";
+import { AudioLines, Tag as TagIcon } from "lucide-react";
 import { Share } from "@capacitor/share";
 import { Capacitor } from "@capacitor/core";
 import { useOnline, featureOn, getOnline, setOnline } from "./settings.js";
@@ -280,11 +281,13 @@ export function FixSheet({ library, setLibrary, ids, onClose, pushToast }) {
 /* =====================================================================
    2. Library health: duplicates + missing info (works fully offline)
    ===================================================================== */
-export function HealthPage({ onBack, library, lyricsMap, playCounts, onRemoveIds, onFix, onCleanTitles, onOpenSettings, pushToast }) {
+export function HealthPage({ onBack, library, lyricsMap, playCounts, onRemoveIds, onFix, onCleanTitles, onOpenSettings, pushToast, aurora = false }) {
   const o = useOnline();
   const dups = useMemo(() => findDuplicates(library), [library]);
   const gaps = useMemo(() => findGaps(library, lyricsMap), [library, lyricsMap]);
   const missing = useMemo(() => library.filter(t => t.missing), [library]);
+  const shortClips = useMemo(() => library.filter(t => t.duration > 0 && t.duration < 30), [library]);
+  const infoList = useMemo(() => { const m = new Map(); [...gaps.unknownArtist, ...gaps.noAlbum, ...gaps.noCover].forEach(t => m.set(t.id, t)); return [...m.values()]; }, [gaps]);
   const [open, setOpen] = useState(null);                 // the card whose list is open
   const [removeSel, setRemoveSel] = useState(() => new Set());
   const canFix = o.enabled && o.features.tagsCovers;
@@ -306,15 +309,17 @@ export function HealthPage({ onBack, library, lyricsMap, playCounts, onRemoveIds
     { k: "noCover", label: "No cover", n: gaps.noCover.length, Icon: ImageOff, action: "Fix" },
     { k: "rawTitles", label: "Messy titles", n: gaps.rawTitles.length, Icon: TextCursorInput, action: "Clean" },
     ...(missing.length ? [{ k: "missing", label: "Missing files", n: missing.length, Icon: FileX, action: "Remove" }] : []),
+    { k: "info", label: "Missing info", n: infoList.length, Icon: TagIcon, action: "Review", aurora: true },
+    { k: "short", label: "Very short clips", n: shortClips.length, Icon: AudioLines, action: "Review", aurora: true },
   ];
   // the score: songs with no issue at all / all songs
   const bad = new Set();
   dups.forEach(g => g.tracks.slice(1).forEach(t => bad.add(t.id)));
-  [gaps.unknownArtist, gaps.noAlbum, gaps.noCover, gaps.rawTitles, missing].forEach(l => l.forEach(t => bad.add(t.id)));
+  [gaps.unknownArtist, gaps.noAlbum, gaps.noCover, gaps.rawTitles, missing, ...(aurora ? [shortClips] : [])].forEach(l => l.forEach(t => bad.add(t.id)));
   const total = library.length || 1;
   const pct = library.length ? Math.round(((library.length - bad.size) / total) * 100) : 100;
   const R = 46, C = 2 * Math.PI * R;
-  const listFor = (k) => (k === "dups" ? [] : k === "missing" ? missing : gaps[k] || []);
+  const listFor = (k) => (k === "dups" ? [] : k === "missing" ? missing : k === "info" ? infoList : k === "short" ? shortClips : gaps[k] || []);
   const cur = open ? cards.find(c => c.k === open) : null;
   const list = cur ? listFor(cur.k) : [];
 
@@ -330,6 +335,43 @@ export function HealthPage({ onBack, library, lyricsMap, playCounts, onRemoveIds
     <div className="hl-page">
       <div className="m-head">{onBack && <button className="m-back" onClick={onBack} aria-label="Back to More"><ChevronLeft size={22} /></button>}<div><h1>Library health</h1><p>{library.length} songs checked on this device</p></div></div>
 
+      {aurora ? (() => {
+        const extra = dups.reduce((n, g) => n + g.tracks.length - 1, 0);
+        const rows = [
+          { k: "dups", title: "Duplicate songs", sub: `${extra} song${extra !== 1 ? "s" : ""} appear more than once`, n: dups.length, tone: "amber", Icon: CopyIcon },
+          { k: "info", title: "Missing info", sub: `${infoList.length} song${infoList.length !== 1 ? "s" : ""} without artist, album or cover`, n: infoList.length, tone: "blue", Icon: TagIcon },
+          { k: "rawTitles", title: "Messy titles", sub: `${gaps.rawTitles.length} song${gaps.rawTitles.length !== 1 ? "s" : ""} with extras in the title`, n: gaps.rawTitles.length, tone: "teal", Icon: TextCursorInput },
+          { k: "missing", title: "Missing files", sub: `${missing.length} song${missing.length !== 1 ? "s" : ""} can’t be found`, n: missing.length, tone: "red", Icon: AlertTriangle },
+          { k: "short", title: "Very short clips", sub: `${shortClips.length} song${shortClips.length !== 1 ? "s" : ""} under 30 seconds`, n: shortClips.length, tone: "purple", Icon: AudioLines },
+        ].filter(r => r.n > 0);
+        const mood = pct >= 85 ? "Looking good" : pct >= 60 ? "Could use a tidy" : "Needs some care";
+        return (
+          <>
+            <div className="hl2-card">
+              <div className="hl2-ring">
+                <svg viewBox="0 0 110 110" aria-hidden="true"><circle cx="55" cy="55" r={R} className="hl-ring-bg" /><circle cx="55" cy="55" r={R} className="hl-ring-fg" strokeDasharray={C} strokeDashoffset={C * (1 - pct / 100)} transform="rotate(-90 55 55)" /></svg>
+                <div><b>{pct}</b><span>of 100</span></div>
+              </div>
+              <div className="hl2-txt">
+                <h2>{mood}</h2>
+                <p>{rows.length === 0 ? `Nothing to fix across ${library.length} songs.` : `${rows.length} thing${rows.length !== 1 ? "s" : ""} could be tidied up across ${library.length.toLocaleString()} songs.`}</p>
+                <button className="hl2-fixall" disabled={bad.size === 0} onClick={fixEverything}><Sparkles size={16} /> Fix all</button>
+              </div>
+            </div>
+            {rows.length > 0 && <h3 className="hl2-h">Needs attention</h3>}
+            <div className="hl2-list">
+              {rows.map(({ k, title, sub, tone, Icon }) => (
+                <div key={k} className="hl2-row">
+                  <span className={`hl2-ico t-${tone}`}><Icon size={20} /></span>
+                  <div className="hl2-rt"><b>{title}</b><i>{sub}</i></div>
+                  <button className="hl2-review" onClick={() => { if (k === "dups") seedDups(); setOpen(k); }}>Review</button>
+                </div>
+              ))}
+            </div>
+            {!canFix && bad.size > 0 && <p className="on-note center">Titles are cleaned on your phone. Tags and covers need the online lookup in Settings.</p>}
+          </>
+        );
+      })() : (<>
       <div className="hl-score">
         <svg viewBox="0 0 110 110" className="hl-ring" aria-hidden="true">
           <circle cx="55" cy="55" r={R} className="hl-ring-bg" />
@@ -340,7 +382,7 @@ export function HealthPage({ onBack, library, lyricsMap, playCounts, onRemoveIds
       </div>
 
       <div className="hl-grid">
-        {cards.map(({ k, label, n, Icon, action }) => (
+        {cards.filter(c => !c.aurora).map(({ k, label, n, Icon, action }) => (
           <div key={k} className={`hl-card${n === 0 ? " ok" : ""}`}>
             <span className="hl-ico">{n === 0 ? <Check size={17} /> : <Icon size={17} />}</span>
             <b className="hl-n">{n}</b>
@@ -354,10 +396,14 @@ export function HealthPage({ onBack, library, lyricsMap, playCounts, onRemoveIds
       <button className="on-cta hl-all" disabled={bad.size === 0} onClick={fixEverything}><Sparkles size={16} /> Fix everything</button>
       {!canFix && bad.size > 0 && <p className="on-note center">Titles are cleaned on your phone. Tags and covers need the online lookup in Settings.</p>}
 
+      </>)}
+
       {cur && (
         <Sheet title={cur.label} sub={`${list.length || dups.length} to look at`} onClose={() => setOpen(null)}
           footer={cur.k === "dups" ? (
             <button className="on-cta danger" disabled={!removeSel.size} onClick={() => { onRemoveIds([...removeSel]); pushToast?.(`Removed ${removeSel.size} from your library`); setRemoveSel(new Set()); setOpen(null); }}><Trash2 size={15} /> Remove {removeSel.size} selected</button>
+          ) : cur.k === "short" ? (
+            <button className="on-cta danger" onClick={() => { onRemoveIds(shortClips.map(t => t.id)); pushToast?.("Removed very short clips from your library"); setOpen(null); }}><Trash2 size={15} /> Remove from library</button>
           ) : cur.k === "missing" ? (
             <button className="on-cta danger" onClick={() => { onRemoveIds(missing.map(t => t.id)); pushToast?.("Removed songs that are no longer on your phone"); setOpen(null); }}><Trash2 size={15} /> Remove from library</button>
           ) : cur.k === "rawTitles" ? (

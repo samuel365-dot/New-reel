@@ -4,6 +4,7 @@ import App from "./App.jsx";
 import { installAndroidPlatform } from "./platform/android.js";
 import "./designs.css";
 import "./mobile.css";
+import "./aurora.css";
 
 // Reel is an Android app: install the `window.reel` bridge (Capacitor plugins) before the app renders.
 installAndroidPlatform();

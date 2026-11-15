@@ -6,7 +6,7 @@ import {
   FolderOpen, Check, Clock, Pencil, Camera, CheckSquare, ListPlus, ListEnd, Flame, Sun, ArrowUp, ArrowDown,
   Mic2, Upload, FileText, Hand, Users, User, Trophy, Timer, Tags, BarChart3,
   Zap, Wind, Leaf, CloudRain, Target, GripVertical, Award, Lock,
-  TrendingUp, TrendingDown, Minus, Sparkles, Headphones, Star, Medal, Gem, Crown, Rocket, Download, LayoutGrid, List, Share2, Copy, MoreHorizontal, ChevronLeft, ChevronRight, Wand2
+  TrendingUp, TrendingDown, Minus, Sparkles, Headphones, Star, Medal, Gem, Crown, Rocket, Download, LayoutGrid, List, Share2, Copy, MoreHorizontal, ChevronLeft, ChevronRight, Wand2, Moon, Globe, Tag, Compass,
 } from "lucide-react";
 import { OnlineSettings, PlaybackSettings } from "./online/ui-settings.jsx";
 import { FixSheet, ArtistPhotosSheet, HealthPage, ImportSheet, ArtistExtras, RecommendationsCard, shareText, playlistShareText } from "./online/ui-tools.jsx";
@@ -1610,6 +1610,7 @@ function buildRecapCard(playHistory, library, range) {
 // Selectable app designs (see src/designs.css). "classic" is the original look.
 const MORE_PAGES = ["more", "queue", "recent", "lyrics", "stats", "discover", "health"];
 const DESIGNS = [
+  { key: "aurora", name: "Aurora", sub: "Calm dark glass, soft glow from the cover, floating player and tab bar" },
   { key: "classic", name: "Classic", sub: "The original Reel: sidebar, dark panels, bottom player bar" },
   { key: "bloom", name: "Bloom", sub: "Glass panels, color glow, floating player pill" },
   { key: "turntable", name: "Turntable", sub: "Top navigation, listening-room Now Playing with Up next and lyrics" },
@@ -2416,8 +2417,9 @@ function LiveLyricLine({ lines, index }) {
 
 /* Phone lists build 40 rows first and add more just before the user reaches them, so a big library opens instantly
    (before, every row — and every cover — was built at once, which took seconds). */
-function MobileRows({ tracks, row }) {
+function MobileRows({ tracks, row, minShown = 0 }) {
   const [n, setN] = useState(40);
+  useEffect(() => { if (minShown && n < minShown) setN(minShown); }, [minShown]); // eslint-disable-line
   const endRef = useRef(null);
   const shown = Math.min(n, tracks.length);
   useEffect(() => {
@@ -2666,7 +2668,25 @@ export default function App() {
   const [minSeconds, setMinSeconds] = useState(15);   // skip clips shorter than this when scanning
   const [featIn, setFeatInState] = useState("title");   // featured artists go in the title or in the artist field
   const [density, setDensity] = useState("comfortable");
-  const [design, setDesign] = useState("classic"); // classic | bloom | turntable
+  const [design, setDesign] = useState("aurora"); // aurora | classic | bloom | turntable
+  const isAu = design === "aurora";
+  const [auSearch, setAuSearch] = useState(false);
+  const [mfyAll, setMfyAll] = useState(false);       // "Made for you · See all" page
+  const [mfyCat, setMfyCat] = useState("all");
+  const [mfyStuck, setMfyStuck] = useState(false);
+  useEffect(() => {
+    if (!(page === "playlists" && mfyAll)) { setMfyStuck(false); return; }
+    const el = document.querySelector(".page-body"); if (!el) return;
+    const on = () => setMfyStuck(el.scrollTop > 64);
+    on(); el.addEventListener("scroll", on, { passive: true });
+    return () => el.removeEventListener("scroll", on);
+  }, [page, mfyAll]);
+  const [auJump, setAuJump] = useState(null); // A–Z rail jump {idx,id,n}
+  useEffect(() => {
+    if (!auJump) return;
+    const t = setTimeout(() => { const el = document.querySelector(`[data-tid="${auJump.id}"]`); if (el) el.scrollIntoView({ block: "start" }); }, 90);
+    return () => clearTimeout(t);
+  }, [auJump]);
   const [trackView, setTrackView] = useState("auto"); // auto (design default) | list | grid
   const [sort, setSort] = useState({ key: "dateAdded", dir: "desc" });
 
@@ -3753,7 +3773,8 @@ export default function App() {
       const st = data.settings || {};
       setAccentKey(st.accentKey || "amber");
       setDensity(st.density || "comfortable");
-      setDesign(st.design === "bloom" || st.design === "turntable" ? st.design : "classic");
+      // Aurora is the new default. Anyone saved before it existed (no designVer) moves to it once; picking Classic afterwards sticks.
+      setDesign(st.design === "bloom" || st.design === "turntable" || st.design === "aurora" || (st.designVer === 3 && st.design === "classic") ? st.design : "aurora");
       setTrackView(st.trackView === "list" || st.trackView === "grid" ? st.trackView : "auto");
       if (st.librarySort && typeof st.librarySort.key === "string") setSort({ key: st.librarySort.key, dir: st.librarySort.dir === "asc" ? "asc" : "desc" });
       setNpView(st.npView || "vinyl");
@@ -3926,6 +3947,7 @@ export default function App() {
   const [sleepAtTrackEnd, setSleepAtTrackEnd] = useState(false);
   const [sleepTimerMenuOpen, setSleepTimerMenuOpen] = useState(false);
   const [sleepTimerRemainingSec, setSleepTimerRemainingSec] = useState(0);
+  const [sleepTotalSec, setSleepTotalSec] = useState(0);
   const [sleepTimerEndedNotice, setSleepTimerEndedNotice] = useState(false);
   const sleepFadeRafRef = useRef(null);
 
@@ -3933,6 +3955,7 @@ export default function App() {
     cancelAnimationFrame(sleepFadeRafRef.current);
     setSleepAtTrackEnd(false);
     setSleepTimerEndAt(Date.now() + minutes * 60000);
+    setSleepTotalSec(minutes * 60);
     setSleepTimerMenuOpen(false);
   };
   const startSleepAtTrackEnd = () => {
@@ -4042,7 +4065,7 @@ export default function App() {
         volume: s.volume, lastPositionSec: s.position,
       },
       settings: {
-        accentKey: s.accentKey, density: s.density, design: s.design, trackView: s.trackView, librarySort: s.sort, npView: s.npView, theme: s.theme, seekBarStyle: s.seekBarStyle, minSeconds: s.minSeconds, featIn: s.featIn,
+        accentKey: s.accentKey, density: s.density, design: s.design, designVer: 3, trackView: s.trackView, librarySort: s.sort, npView: s.npView, theme: s.theme, seekBarStyle: s.seekBarStyle, minSeconds: s.minSeconds, featIn: s.featIn,
       },
     });
     if (toStore.length) Promise.resolve(saving).then(() => setTimeout(() => persistMissing(toStore), 400)).catch(() => {});
@@ -4210,6 +4233,7 @@ export default function App() {
     if (nowPlayingOpen) return setNowPlayingOpen(false);
     if (selectedIds.size > 0) return setSelectedIds(new Set());
     if (page === "playlists" && openSuggestionId) return setOpenSuggestionId(null);
+    if (page === "playlists" && mfyAll) { if (mfyCat !== "all") return setMfyCat("all"); return setMfyAll(false); }
     if (page === "playlists" && (openSmartKey || openMoodKey)) { setOpenSmartKey(null); setOpenMoodKey(null); return; }
     if (page === "playlists" && openPlaylistId) return setOpenPlaylistId(null);
     if (page === "artists" && openArtistName) return setOpenArtistName(null);
@@ -4565,6 +4589,29 @@ export default function App() {
       return { ...s, trackIds: ids, arts: coverArts(ids.map(id => byId.get(id))) };
     }).filter(s => s.trackIds.length >= 3);
   }, [suggestions, library]);
+  const MFY_CATS = [
+    { key: "genre", label: "Genre", icon: Tag, sub: "Songs from your library with the same genre", kinds: ["genre"] },
+    { key: "era", label: "Era", icon: Clock, sub: "Genre and era, from your own songs", kinds: ["decade", "era"] },
+    { key: "circle", label: "Similar artists", icon: Users, sub: "Artists that sound alike, all from your library", kinds: ["circle"] },
+    { key: "artist", label: "Artists", icon: Mic2, sub: "The best of one artist, from your library", kinds: ["artist"] },
+    { key: "album", label: "Albums", icon: Disc3, sub: "Full albums you already own", kinds: ["album"] },
+    { key: "length", label: "Length", icon: Timer, sub: "Long listens and quick hits", kinds: ["length"] },
+    { key: "mood", label: "Mood", icon: Wind, sub: "Songs you tagged with this mood", kinds: ["mood"] },
+    { key: "new", label: "Recently added", icon: Plus, sub: "Songs you added recently", kinds: ["new"] },
+    { key: "script", label: "Language", icon: Globe, sub: "Songs in the same script or language", kinds: ["script"] },
+  ];
+  const mfyGroups = MFY_CATS.map(c => ({ ...c, items: visibleSuggestions.filter(x => c.kinds.includes(x.kind)) })).filter(c => c.items.length > 0);
+  const renderMfyCard = (x) => (
+    <div key={x.id} className="mfy-card">
+      <button className="mfy-cover" onClick={() => setOpenSuggestionId(x.id)} aria-label={`Open ${x.name}`}>
+        <Mosaic arts={x.arts} seed={x.seedKey} />
+      </button>
+      <button className="mfy-add" onClick={() => addSuggestion(x)} aria-label={`Add ${x.name} to my playlists`}><Plus size={16} strokeWidth={2.4} /></button>
+      <button className="mfy-x" onClick={() => forgetSuggestion(x)} aria-label="Not interested"><X size={13} strokeWidth={2.4} /></button>
+      <b>{x.name}</b>
+      <i>{x.trackIds.length} songs</i>
+    </div>
+  );
   const openSuggestion = openSuggestionId ? visibleSuggestions.find(s => s.id === openSuggestionId) || null : null;
   const forgetSuggestion = (s) => {
     setSuggestions(prev => prev.filter(x => x.id !== s.id));
@@ -4914,12 +4961,12 @@ export default function App() {
   /* ---------- Sort control ---------- */
   function renderSortControl() {
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <div className="sort-wrap" style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <select className="sort-select" value={sort.key} onChange={e => setSort(s => ({ ...s, key: e.target.value }))}>
           <option value="title">Title</option>
           <option value="artist">Artist</option>
           <option value="album">Album</option>
-          <option value="dateAdded">Date added</option>
+          <option value="dateAdded">{isAu ? "Recent" : "Date added"}</option>
           <option value="duration">Duration</option>
         </select>
         <button className="btn sort-dir" onClick={() => setSort(s => ({ ...s, dir: s.dir === "asc" ? "desc" : "asc" }))} aria-label="Reverse the order">
@@ -4958,13 +5005,14 @@ export default function App() {
       const selecting = selectedIds.size > 0;
       return (
         <div className="m-list">
-          <MobileRows tracks={tracks} row={t => {
+          <MobileRows tracks={tracks} minShown={auJump && context === "library" ? auJump.n : 0} row={t => {
             const playing = t.id === currentTrackId;
             const selected = selectedIds.has(t.id);
             const m = t.mood && MOOD_PRESETS.find(x => x.key === t.mood);
             return (
               <div key={t.id}
                 className={`m-row${playing ? " playing" : ""}${selected ? " selected" : ""}${page === "library" && query.trim() ? " searching" : ""}`}
+                data-tid={t.id}
                 onClick={() => { if (!lpFiredRef.current && selectedIds.size === 0) setSelCtx(context || "library"); rowTap(t, queueContext || tracks.map(x => x.id)); }}
                 {...lpProps(t, context)}
               >
@@ -5246,15 +5294,15 @@ export default function App() {
       )}
 
       {/* MAIN */}
-      <div className="main-col">
-        <div className={`topbar${((page === "queue" && queue.length > 0) || page === "stats" || page === "discover" || page === "health") ? " m-hide" : ""}`}>
-          {(openPlaylist || openArtist || openSmart || openMood || ["queue", "recent", "lyrics", "stats"].includes(page)) && (
+      <div className={`main-col${isAu && (openPlaylist || openSmart || openMood || (page === "artists" && openArtist)) ? " au-hero-page" : ""}`}>
+        <div className={`topbar${isAu ? ` au-p-${page}` : ""}${((page === "queue" && queue.length > 0) || page === "stats" || page === "recent" || page === "discover" || page === "health" || (isAu && page === "playlists" && mfyAll && !openSuggestion)) ? " m-hide" : ""}`}>
+          {(openPlaylist || openArtist || openSmart || openMood || openSuggestion || (page === "playlists" && mfyAll) || ["queue", "recent", "lyrics", "stats"].includes(page)) && (
             <button className="btn btn-icon mobile-menu-btn" onClick={() => backRef.current()} aria-label="Back"><ChevronLeft size={20} /></button>
           )}
-          <div className="page-title">
+          <div className={`page-title${isAu && (isAu && (openPlaylist || openSmart || openMood || (page === "artists" && openArtist))) ? " au-dup" : (isAu && openSuggestion ? " au-detail" : "")}`}>
             {page === "library" && "Library"}
             {page === "favorites" && "Favorites"}
-            {page === "playlists" && !openPlaylist && !openSmart && !openMood && !openSuggestion && "Playlists"}
+            {page === "playlists" && !openPlaylist && !openSmart && !openMood && !openSuggestion && (mfyAll ? "Made for you" : "Playlists")}
             {page === "playlists" && openSuggestion && openSuggestion.name}
             {page === "playlists" && openPlaylist && openPlaylist.name}
             {page === "playlists" && openSmart && openSmart.name}
@@ -5268,16 +5316,22 @@ export default function App() {
             {page === "more" && "More"}
             {page === "discover" && "Explore"}
             {page === "health" && "Library health"}
+            {isAu && page === "more" && <small className="au-sub">Everything else, one tap away</small>}
+            {isAu && page === "library" && (() => {
+              const list = page === "library" ? library : favoriteTracks;
+              const secs = list.reduce((sum, t) => sum + (t.duration || 0), 0);
+              return <small className="au-sub">{list.length.toLocaleString()} song{list.length !== 1 ? "s" : ""}{secs > 0 ? ` · ${fmtDuration(secs)}` : ""}</small>;
+            })()}
           </div>
           {(page === "library" || page === "favorites" || (page === "playlists" && openPlaylist)) && (
             <>
-              {page !== "playlists" && (
+              {page !== "playlists" && (!isAu || page !== "library" || auSearch || query) && (
                 <div className="search-box">
                   <Search size={14} />
-                  <input placeholder="Search titles or artists" value={query} onChange={e => setQuery(e.target.value)} />
+                  <input placeholder="Search titles or artists" value={query} onChange={e => setQuery(e.target.value)} autoFocus={isAu && auSearch && !query} />
                 </div>
               )}
-              {renderSortControl()}
+              {!(isAu && (page === "library" || openPlaylist || openSmart || openMood)) && renderSortControl()}
             </>
           )}
           {page === "artists" && !openArtist && (
@@ -5287,15 +5341,18 @@ export default function App() {
             </div>
           )}
           <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-            {design !== "classic" && (page === "library" || page === "favorites") && (
+            {isAu && page === "library" && (
+              <button className={`btn btn-icon au-ib${auSearch || query ? " on" : ""}`} onClick={() => { if (auSearch || query) { setQuery(""); setAuSearch(false); } else setAuSearch(true); }} aria-label="Search"><Search size={18} /></button>
+            )}
+            {design !== "classic" && !isAu && (page === "library" || page === "favorites") && (
               <div className="view-toggle">
                 <button className={`view-toggle-btn${effectiveTrackView === "list" ? " active" : ""}`} onClick={() => setTrackView("list")} title="List view"><List size={14} /></button>
                 <button className={`view-toggle-btn${effectiveTrackView === "grid" ? " active" : ""}`} onClick={() => setTrackView("grid")} title="Cover grid"><LayoutGrid size={14} /></button>
               </div>
             )}
             {page === "library" && (
-              <button className="btn btn-accent" onClick={handleAddMusic} disabled={scanning}>
-                <FolderOpen size={14} /> {scanning ? "Scanning…" : "Scan music"}
+              <button className="btn btn-accent" onClick={handleAddMusic} disabled={scanning} aria-label="Scan music">
+                <FolderOpen size={14} /> <span className="au-hide">{scanning ? "Scanning…" : "Scan music"}</span>
               </button>
             )}
             {page === "queue" && queue.length > 0 && (
@@ -5322,11 +5379,42 @@ export default function App() {
             <ExplorePage onBack={() => setPage("more")} currentTrack={currentTrack} enrichment={enrichment} library={library} playCounts={playCounts} favorites={favorites} onOpenSettings={() => setSettingsOpen(true)} />
           )}
           {page === "health" && (
-            <HealthPage onBack={() => setPage("more")} library={library} lyricsMap={lyricsMap} playCounts={playCounts}
+            <HealthPage aurora={isAu} onBack={() => setPage("more")} library={library} lyricsMap={lyricsMap} playCounts={playCounts}
               onRemoveIds={removeIdsFromLibrary} onFix={(ids) => setFixIds(ids)} onCleanTitles={cleanUpTitles}
               onOpenSettings={() => setSettingsOpen(true)} pushToast={pushToast} />
           )}
-          {page === "more" && (
+          {page === "more" && isAu && (
+            <div className="more-list more-au">
+              <button className="more-row more-feature" onClick={() => { setPage("discover"); setOpenPlaylistId(null); }}>
+                <span className="more-ico"><Compass size={22} /></span>
+                <span className="more-txt"><b>Explore</b><i>New songs like the ones you play</i></span>
+                <ChevronRight size={18} />
+              </button>
+              <div className="more-group">
+                {[
+                  ["queue", ListEnd, "Queue", `${queue.length} up next`],
+                  ["recent", Clock, "Recent", "What you played lately"],
+                  ["lyrics", Mic2, "Lyrics", `${tracksWithLyrics.length} song${tracksWithLyrics.length !== 1 ? "s" : ""} with lyrics`],
+                  ["stats", BarChart3, "Stats", "Time, track of the week, milestones"],
+                  ["health", Tag, "Library health", "Duplicates and missing info"],
+                ].map(([key, Icon, label, sub]) => (
+                  <button key={key} className="more-row" onClick={() => { setPage(key); setOpenPlaylistId(null); }}>
+                    <span className="more-ico"><Icon size={20} /></span>
+                    <span className="more-txt"><b>{label}</b><i>{sub}</i></span>
+                    <ChevronRight size={18} />
+                  </button>
+                ))}
+              </div>
+              <div className="more-group">
+                <button className="more-row" onClick={() => setSettingsOpen(true)}>
+                  <span className="more-ico"><Settings size={20} /></span>
+                  <span className="more-txt"><b>Settings</b><i>Accent, sleep timer, notifications</i></span>
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            </div>
+          )}
+          {page === "more" && !isAu && (
             <div className="more-list">
               {[
                 ["queue", Radio, "Queue", `${queue.length} up next`],
@@ -5357,10 +5445,33 @@ export default function App() {
               </button>
             </div>
           )}
+{isAu && page === "library" && (
+            <div className="au-chips">
+              {[["dateAdded", "desc", "Recently added"], ["title", "asc", "A–Z"], ["artist", "asc", "Artist"], ["album", "asc", "Album"], ["duration", "desc", "Longest"]].map(([k, d, l]) => (
+                <button key={k} className={`au-chip${sort.key === k ? " on" : ""}`} onClick={() => setSort({ key: k, dir: d })}>{l}</button>
+              ))}
+              <span className="au-chip-gap" />
+              <button className={`au-chip au-chip-ic${effectiveTrackView === "list" ? " on" : ""}`} onClick={() => setTrackView("list")} aria-label="List view"><List size={15} /></button>
+              <button className={`au-chip au-chip-ic${effectiveTrackView === "grid" ? " on" : ""}`} onClick={() => setTrackView("grid")} aria-label="Cover grid"><LayoutGrid size={15} /></button>
+            </div>
+          )}
           {page === "library" && (
             <>
+              {isAu && recentTracks.length > 2 && !query.trim() && (
+                <>
+                  <div className="au-lab">Jump back in</div>
+                  <div className="au-car">
+                    {recentTracks.slice(0, 8).map(t => (
+                      <button key={t.id} className="au-pc" onClick={() => playTrackId(t.id, recentTracks.map(x => x.id))}>
+                        <TrackThumb track={t} size={128} />
+                        <b>{t.title}</b><i>{t.artist}</i>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
               {library.length > 0 && (
-                <div className="library-hero">
+                <div className="library-hero lib-page-hero">
                   <div className="library-hero-icon"><Library size={40} strokeWidth={1.3} /></div>
                   <div className="playlist-hero-info">
                     <div className="playlist-hero-eyebrow">Your music</div>
@@ -5394,6 +5505,20 @@ export default function App() {
                 </div>
               )}
               {library.length >= 8 && !query.trim() && <RecommendationsCard recs={recommendations} onPlay={(t, ids) => playTrackId(t.id, ids)} />}
+              {isAu && (
+                <div className="au-lab">All songs
+                  <span className="au-lab-r">
+                    <em>{({ dateAdded: "Newest first", title: "A–Z", artist: "By artist", album: "By album", duration: "By length" })[sort.key] || ""}</em>
+                    <button className="au-mini" disabled={filteredLibrary.length === 0} aria-label="Shuffle all" onClick={() => { setShuffle(true); const r = filteredLibrary[Math.floor(Math.random() * filteredLibrary.length)]; playTrackId(r.id, filteredLibrary.map(t => t.id)); }}><Shuffle size={14} /></button>
+                  </span>
+                </div>
+              )}
+              {isAu && sort.key === "title" && !query.trim() && filteredLibrary.length > 24 && (() => {
+                const letters = [];
+                filteredLibrary.forEach((t, i) => { const c = (t.title || "#").trim().charAt(0).toUpperCase(); const L = /[A-Z]/.test(c) ? c : "#"; if (!letters.find(x => x.L === L)) letters.push({ L, i, id: t.id }); });
+                const cur = auJump && letters.find(x => x.id === auJump.id);
+                return <div className="au-rail-wrap"><div className="au-rail" role="navigation" aria-label="Jump to letter">{letters.map(x => <button key={x.L} className={cur && cur.L === x.L ? "on" : ""} onClick={() => setAuJump({ idx: x.i, id: x.id, n: x.i + 30 })}>{x.L}</button>)}</div></div>;
+              })()}
               {renderTrackTable(filteredLibrary, { context: "library" })}
             </>
           )}
@@ -5438,7 +5563,7 @@ export default function App() {
             </>
           )}
 
-          {page === "playlists" && !openPlaylist && !openSmart && !openMood && !openSuggestion && (
+          {page === "playlists" && !openPlaylist && !openSmart && !openMood && !openSuggestion && !mfyAll && (
             <>
               <div className="pl-actions">
                 <button className="pl-act" onClick={() => setImportOpen(true)}><Download size={17} /><span>Import playlist</span></button>
@@ -5453,19 +5578,9 @@ export default function App() {
                 </button>
               ) : visibleSuggestions.length > 0 ? (
                 <>
-                  <div className="pl-label mfy-label">MADE FOR YOU{enriching && <span className="mfy-sync"><Loader2 size={11} className="spin" /> reading your library online{enrichProgress ? ` · ${enrichProgress.done}/${enrichProgress.total}` : ""}</span>}</div>
+                  <div className="pl-label mfy-label"><span>MADE FOR YOU</span>{isAu && <button className="mfy-seeall" onClick={() => { setMfyAll(true); setMfyCat("all"); }}>See all <ChevronRight size={15} /></button>}{enriching && <span className="mfy-sync"><Loader2 size={11} className="spin" /> reading your library online{enrichProgress ? ` · ${enrichProgress.done}/${enrichProgress.total}` : ""}</span>}</div>
                   <div className="mfy-strip">
-                    {visibleSuggestions.map(s => (
-                      <div key={s.id} className="mfy-card">
-                        <button className="mfy-cover" onClick={() => setOpenSuggestionId(s.id)} aria-label={`Open ${s.name}`}>
-                          <Mosaic arts={s.arts} seed={s.seedKey} />
-                        </button>
-                        <button className="mfy-add" onClick={() => addSuggestion(s)} aria-label={`Add ${s.name} to my playlists`}><Plus size={16} strokeWidth={2.4} /></button>
-                        <button className="mfy-x" onClick={() => forgetSuggestion(s)} aria-label="Not interested"><X size={13} strokeWidth={2.4} /></button>
-                        <b>{s.name}</b>
-                        <i>{s.trackIds.length} songs</i>
-                      </div>
-                    ))}
+                    {visibleSuggestions.map(x => renderMfyCard(x))}
                   </div>
                 </>
               ) : (
@@ -5514,6 +5629,36 @@ export default function App() {
               {playlists.length === 0 && <p className="mfy-note">No playlists yet — tap “New playlist” to start one, or add one from “Made for you”.</p>}
             </>
           )}
+
+          {page === "playlists" && mfyAll && !openSuggestion && (() => {
+            const cur = mfyGroups.find(g => g.key === mfyCat);
+            return (
+              <div className="mfy-all">
+                <div className="m-head left mfy-head">
+                  <button className="m-back" onClick={() => backRef.current()} aria-label="Back"><ChevronLeft size={22} /></button>
+                  <div><h1>Made for you</h1><p>{visibleSuggestions.length} playlist{visibleSuggestions.length !== 1 ? "s" : ""} from your own songs</p></div>
+                  <button className="mfy-refresh" aria-label="Look for new playlists" onClick={() => { setSuggestMeta(m => ({ ...m, builtAt: 0 })); pushToast("Looking for new playlists…"); }}><Sparkles size={18} /></button>
+                </div>
+                {enriching && <div className="mfy-sync-line"><Loader2 size={13} className="spin" /> Reading your library online{enrichProgress ? ` · ${enrichProgress.done}/${enrichProgress.total}` : ""}</div>}
+                <div className={`au-chips mfy-chips${mfyStuck ? " stuck" : ""}`}>
+                  <button className={`au-chip${mfyCat === "all" ? " on" : ""}`} onClick={() => setMfyCat("all")}>All <span>{visibleSuggestions.length}</span></button>
+                  {mfyGroups.map(g => <button key={g.key} className={`au-chip${mfyCat === g.key ? " on" : ""}`} onClick={() => setMfyCat(g.key)}>{g.label} <span>{g.items.length}</span></button>)}
+                </div>
+                {visibleSuggestions.length === 0 && <p className="mfy-note">Playlists made for you will appear here once your songs have been looked up.</p>}
+                {mfyCat === "all" ? mfyGroups.map(g => (
+                  <section key={g.key} className="mfy-sec">
+                    <div className="mfy-sec-h"><span className="mfy-sec-ic"><g.icon size={18} /></span><div><b>{g.label}</b><i>{g.sub}</i></div><em>{g.items.length}</em></div>
+                    <div className="mfy-strip">{g.items.map(renderMfyCard)}</div>
+                  </section>
+                )) : cur && (
+                  <>
+                    <div className="mfy-cat-card"><span className="mfy-sec-ic"><cur.icon size={18} /></span><div><b>{cur.label}</b><i>{cur.sub}</i></div></div>
+                    <div className="mfy-grid">{cur.items.map(renderMfyCard)}</div>
+                  </>
+                )}
+              </div>
+            );
+          })()}
 
           {page === "playlists" && openSuggestion && (() => {
             const tracks = openSuggestion.trackIds.map(id => libraryAll.find(t => t.id === id)).filter(Boolean);
@@ -5733,7 +5878,7 @@ export default function App() {
                               className="avatar"
                               style={a.photo ? { backgroundImage: `url(${a.photo})` } : { background: coverGradient(a.name) }}
                             >
-                              {!a.photo && <User size={26} strokeWidth={1.4} />}
+                              {!a.photo && (isAu ? <span className="avatar-initial">{(a.name || "?").trim().charAt(0).toUpperCase()}</span> : <User size={26} strokeWidth={1.4} />)}
                             </div>
                             <div className="rank">{i + 1}</div>
                           </div>
@@ -5785,9 +5930,9 @@ export default function App() {
 
           {page === "artists" && openArtist && (
             <>
-              <button className="btn" style={{ marginBottom: 18 }} onClick={() => setOpenArtistName(null)}>← All artists</button>
+              <button className="btn au-hide-au" style={{ marginBottom: 18 }} onClick={() => setOpenArtistName(null)}>← All artists</button>
 
-              <div className="playlist-hero">
+              <div className="playlist-hero artist-hero">
                 <div
                   className="playlist-hero-backdrop"
                   style={openArtist.photo ? { backgroundImage: `url(${openArtist.photo})` } : { background: coverGradient(openArtist.name) }}
@@ -5797,7 +5942,7 @@ export default function App() {
                     className="playlist-hero-cover artist-hero-avatar"
                     style={openArtist.photo ? { backgroundImage: `url(${openArtist.photo})` } : { background: coverGradient(openArtist.name) }}
                   >
-                    {!openArtist.photo && <User size={44} strokeWidth={1.2} />}
+                    {!openArtist.photo && (isAu ? <span className="avatar-initial xl">{(openArtist.name || "?").trim().charAt(0).toUpperCase()}</span> : <User size={44} strokeWidth={1.2} />)}
                     <button className="cover-upload-btn" onClick={() => artistPhotoInputRef.current.click()}>
                       <Camera size={20} />
                     </button>
@@ -5910,7 +6055,7 @@ export default function App() {
                     </div>
                   </>
                 )}
-                <div className="m-label">Up next</div>
+                <div className="m-label">Up next{isAu && <em className="au-hint">drag to reorder</em>}</div>
                 <div className="m-list">
                   {(() => {
                     const curIdx = queueIndexOf(queue, currentTrackId, queuePosRef.current);
@@ -5924,6 +6069,7 @@ export default function App() {
                           {...lpProps(t, "queue")}>
                           <TrackThumb track={t} isPlaying={false} size={48} />
                           <div className="m-txt"><span className="t">{t.title}</span><span className="a"><span className="a-name">{t.artist}</span></span></div>
+                          {isAu && t.duration > 0 && <span className="au-dur">{fmtTime(t.duration)}</span>}
                           <button className="m-grip" aria-label="Drag to reorder" onClick={e => e.stopPropagation()}
                             onPointerDown={e => {
                               e.stopPropagation();
@@ -5981,9 +6127,22 @@ export default function App() {
               return d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
             };
             const list = recentTab === "most" ? mostPlayed : recentTracks;
+            const recentRow = (t) => (
+              <div key={t.id} className={`m-row${t.id === currentTrackId ? " playing" : ""}`}
+                onClick={() => { if (lpFiredRef.current) { lpFiredRef.current = false; return; } playTrackId(t.id, list.map(x => x.id)); }}
+                {...lpProps(t, "recent")}>
+                <TrackThumb track={t} isPlaying={t.id === currentTrackId && isPlaying} size={48} />
+                <div className="m-txt"><span className="t">{t.title}</span><span className="a"><span className="a-name">{t.artist}</span></span></div>
+                {isAu && t.id === currentTrackId && isPlaying && <span className="au-eq" aria-hidden="true"><u /><u /><u /></span>}
+                {isAu && recentTab !== "most" && t.duration > 0 && <span className="au-dur">{fmtTime(t.duration)}</span>}
+                {!(isAu && recentTab !== "most") && <span className="m-when">{recentTab === "most" ? `${playCounts[t.id] || 0} play${(playCounts[t.id] || 0) !== 1 ? "s" : ""}` : dayLabel(lastPlay[t.id])}</span>}
+              </div>
+            );
+            const spanDays = (() => { const ts = list.map(t => lastPlay[t.id]).filter(Boolean); if (!ts.length) return 0; const st = (x) => new Date(new Date(x).getFullYear(), new Date(x).getMonth(), new Date(x).getDate()).getTime(); return Math.max(1, Math.round((st(Date.now()) - st(Math.min(...ts))) / 86400000) + 1); })();
             return (
               <>
-                <div className="m-head"><div><h1>Recent</h1></div></div>
+                <div className="m-head left"><button className="m-back" onClick={() => setPage("more")} aria-label="Back to More"><ChevronLeft size={22} /></button><div><h1>Recent</h1>{isAu && recentTab !== "most" && spanDays > 0 && <p>Your last {spanDays} day{spanDays !== 1 ? "s" : ""}</p>}</div>
+                  {isAu && list.length > 0 && <button className="au-pill" onClick={() => { setShuffle(false); playTrackId(list[0].id, list.map(x => x.id)); }}><Play size={14} fill="currentColor" /> Replay all</button>}</div>
                 <div className="m-seg">
                   <button className={recentTab === "recent" ? "on" : ""} onClick={() => setRecentTab("recent")}>Recently played</button>
                   <button className={recentTab === "most" ? "on" : ""} onClick={() => setRecentTab("most")}>Most played</button>
@@ -5991,17 +6150,27 @@ export default function App() {
                 {list.length === 0 ? (
                   <p className="m-empty">Nothing played yet.</p>
                 ) : (
-                  <div className="m-list">
-                    {list.map(t => (
-                      <div key={t.id} className={`m-row${t.id === currentTrackId ? " playing" : ""}`}
-                        onClick={() => { if (lpFiredRef.current) { lpFiredRef.current = false; return; } playTrackId(t.id, list.map(x => x.id)); }}
-                        {...lpProps(t, "recent")}>
-                        <TrackThumb track={t} isPlaying={t.id === currentTrackId && isPlaying} size={48} />
-                        <div className="m-txt"><span className="t">{t.title}</span><span className="a"><span className="a-name">{t.artist}</span></span></div>
-                        <span className="m-when">{recentTab === "most" ? `${playCounts[t.id] || 0} play${(playCounts[t.id] || 0) !== 1 ? "s" : ""}` : dayLabel(lastPlay[t.id])}</span>
+                  isAu && recentTab !== "most" ? (() => {
+                    const groups = [];
+                    list.forEach(t => { const L = dayLabel(lastPlay[t.id]) || "Earlier"; const g = groups[groups.length - 1]; if (g && g.L === L) g.items.push(t); else groups.push({ L, items: [t] }); });
+                    return groups.map(g => (
+                      <div key={g.L}>
+                        <div className="au-lab">{g.L}</div>
+                        <div className="m-list">
+                          {g.items.map(t => (
+                            <div className="au-tl" key={t.id}>
+                              <span className="au-time">{lastPlay[t.id] ? new Date(lastPlay[t.id]).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }) : ""}</span>
+                              {recentRow(t)}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    ))}
+                    ));
+                  })() : (
+                  <div className="m-list">
+                    {list.map(t => recentRow(t))}
                   </div>
+                  )
                 )}
               </>
             );
@@ -6061,7 +6230,7 @@ export default function App() {
                           <span className="t" style={{ color: t.id === currentTrackId ? "var(--accent)" : undefined }}>{t.title}</span>
                           <span className="a clickable" onClick={e => { e.stopPropagation(); goToArtist(t.artist); }}>{t.artist}</span>
                         </div>
-                        <span className={`lyrics-badge ${synced ? "synced" : "unsynced"}`}>{synced ? "Synced" : "Unsynced"}</span>
+                        <span className={`lyrics-badge ${synced ? "synced" : "unsynced"}`}>{isAu && <Mic2 size={12} />}{synced ? "Synced" : "Unsynced"}</span>
                       </div>
                     );
                   })}
@@ -6080,29 +6249,63 @@ export default function App() {
                   ))}
                 </div>
                 <div className="m-card m-card-big">
-                  <span className="m-card-label">Listening time</span>
-                  <b className="m-card-value">{fmtDuration(statsData.totalSeconds)}</b>
-                  {statsRange !== "all" && compareData.hasAnyData && compareData.timeDeltaPct != null && compareData.timeDeltaPct !== 0 && (
-                    <span className={`m-delta ${compareData.timeDeltaPct > 0 ? "up" : "down"}`}>
-                      {compareData.timeDeltaPct > 0 ? "Up" : "Down"} {Math.abs(compareData.timeDeltaPct)}% on the previous {statsRange === "7d" ? "7" : "30"} days
-                    </span>
-                  )}
+                  <div className="m-big-main">
+                    <span className="m-card-label">Listening time</span>
+                    <b className="m-card-value">{fmtDuration(statsData.totalSeconds)}</b>
+                    {statsRange !== "all" && compareData.hasAnyData && compareData.timeDeltaPct != null && compareData.timeDeltaPct !== 0 && (
+                      <span className={`m-delta ${compareData.timeDeltaPct > 0 ? "up" : "down"}`}>
+                        {compareData.timeDeltaPct > 0 ? "↑" : "↓"} {Math.abs(compareData.timeDeltaPct)}% on the previous {statsRange === "7d" ? "7" : "30"} days
+                      </span>
+                    )}
+                  </div>
+                  {isAu && (() => {
+                    const idx = MILESTONE_META.findIndex(m => totalListeningHours < m.hours);
+                    if (idx < 0) return null;
+                    const nm = MILESTONE_META[idx], prevH = idx > 0 ? MILESTONE_META[idx - 1].hours : 0;
+                    const pct = Math.max(0.02, Math.min(1, (totalListeningHours - prevH) / (nm.hours - prevH)));
+                    const R = 52, C = 2 * Math.PI * R, MI = nm.icon;
+                    return (
+                      <div className="m-ring" title={`${nm.name} at ${nm.hours} h`}>
+                        <svg viewBox="0 0 120 120" width="118" height="118"><circle cx="60" cy="60" r={R} className="m-ring-bg" /><circle cx="60" cy="60" r={R} className="m-ring-fg" strokeDasharray={`${C * pct} ${C}`} transform="rotate(-90 60 60)" style={{ stroke: nm.color }} /></svg>
+                        <div className="m-ring-in"><MI size={17} style={{ color: nm.color }} /><span>to {nm.rewardName}</span><b>{fmtDuration(Math.max(0, (nm.hours - totalListeningHours) * 3600))}</b></div>
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="m-card-trio">
                   <div className="m-card"><span className="m-card-label">Plays</span><b className="m-card-value sm">{statsData.totalPlays}</b></div>
                   <div className="m-card"><span className="m-card-label">Songs</span><b className="m-card-value sm">{statsData.distinctTracks}</b></div>
                   <div className="m-card"><span className="m-card-label">Artists</span><b className="m-card-value sm">{statsData.distinctArtists}</b></div>
                 </div>
-                <div className="m-card m-card-chart">
-                  <span className="m-card-title">Daily activity</span>
-                  <div className="m-bars">
-                    {statsData.dailyActivity.map(d => {
-                      const max = Math.max(1, ...statsData.dailyActivity.map(x => x.count));
-                      return <div key={d.key} className="m-bar-wrap" title={`${d.key}: ${d.count}`}><div className="m-bar" style={{ height: `${Math.max(6, (d.count / max) * 100)}%` }} /></div>;
-                    })}
-                  </div>
-                </div>
-                <button className="m-wide-btn" onClick={openTrackOfTheWeek}><Trophy size={17} /> Track of the week <ChevronRight size={17} /></button>
+                {(() => {
+                  const days = statsData.dailyActivity, max = Math.max(1, ...days.map(x => x.count));
+                  const best = days.reduce((bi, d, i) => d.count > days[bi].count ? i : bi, 0);
+                  const dayName = (k, style) => new Date(`${k}T12:00:00`).toLocaleDateString(undefined, { weekday: style });
+                  return (
+                    <div className="m-card m-card-chart">
+                      <div className="m-chart-head"><span className="m-card-title">Daily activity</span>{isAu && days.length > 0 && days[best].count > 0 && days.length <= 7 && <span className="m-best">Best: {dayName(days[best].key, "long")}</span>}</div>
+                      <div className="m-bars">
+                        {days.map((d, i) => (
+                          <div key={d.key} className="m-bar-wrap" title={`${d.key}: ${d.count}`}>
+                            <div className={`m-bar${isAu && i === best && d.count > 0 ? " best" : ""}`} style={{ height: `${Math.max(6, (d.count / max) * 100)}%` }} />
+                            {isAu && days.length <= 7 && <span className="m-dow">{dayName(d.key, "narrow")}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+                {(() => {
+                  const totw = isAu ? (buildRecapCard(playHistory, library, "current") || buildRecapCard(playHistory, library, "last")) : null;
+                  return (
+                    <button className="m-wide-btn" onClick={openTrackOfTheWeek}>
+                      {isAu && <span className="m-wide-ic"><Trophy size={20} /></span>}
+                      {!isAu && <Trophy size={17} />}
+                      <span className="m-wide-txt"><b>Track of the week</b>{totw && <i>{prettyTitle(totw.track.title, totw.track.artist)} · {totw.count} play{totw.count !== 1 ? "s" : ""}</i>}</span>
+                      <ChevronRight size={17} />
+                    </button>
+                  );
+                })()}
                 {statsData.topTracks.length > 0 && (
                   <>
                     <div className="m-label">Top songs</div>
@@ -6117,7 +6320,7 @@ export default function App() {
                     </div>
                   </>
                 )}
-                <div className="m-label">Milestones</div>
+                {!isAu && <div className="m-label">Milestones</div>}
                 <div className="stats-section">
                   <div className="artists-section-header"><Award size={15} color="var(--accent)" /><h4>Milestones</h4></div>
                   <div className="milestones-grid">
@@ -6150,7 +6353,7 @@ export default function App() {
                           <div key={a.name} className="top-artist-circle" onClick={() => goToArtist(a.name)}>
                             <div className="top-artist-circle-avatar-wrap">
                               <div className="avatar" style={a.photo ? { backgroundImage: `url(${a.photo})` } : { background: coverGradient(a.name) }}>
-                                {!a.photo && <User size={26} strokeWidth={1.4} />}
+                                {!a.photo && (isAu ? <span className="avatar-initial">{(a.name || "?").trim().charAt(0).toUpperCase()}</span> : <User size={26} strokeWidth={1.4} />)}
                               </div>
                               <div className="rank">{i + 1}</div>
                             </div>
@@ -6160,7 +6363,7 @@ export default function App() {
                         ))}
                       </div>
                     </div>
-                <div className="m-label">Taste check</div>
+                {!isAu && <div className="m-label">Taste check</div>}
                 <div className="stats-section">
                     <div className="artists-section-header"><Sparkles size={15} color="var(--accent)" /><h4>Taste check</h4></div>
                     <div className="compare-tabs">
@@ -6247,6 +6450,7 @@ export default function App() {
             </div>
           </div>
 
+          {isAu && currentTrack && <button className={`pb-fav${favorites.has(currentTrack.id) ? " on" : ""}`} aria-label={favorites.has(currentTrack.id) ? "Remove from Favorites" : "Add to Favorites"} onClick={() => toggleFavorite(currentTrack.id)}><Heart size={20} fill={favorites.has(currentTrack.id) ? "currentColor" : "none"} /></button>}
           <button className="pb-queue-btn" aria-label="Queue" onClick={() => { setPage("queue"); setOpenPlaylistId(null); setNowPlayingOpen(false); }}><ListEnd size={20} /></button>
           <div className="pb-center">
             <div className="pb-controls">
@@ -6317,11 +6521,22 @@ export default function App() {
           />
           {(
             <div className="np-top np-top-m">
-              <button className="btn btn-icon" onClick={() => setNowPlayingOpen(false)}><ChevronDown size={20} /></button>
-              <div className="np-style-tabs">
-                <button className={`np-tab${npView !== "lyrics" ? " active" : ""}`} onClick={() => setNpView("cover")}>Player</button>
-                <button className={`np-tab${npView === "lyrics" ? " active" : ""}`} onClick={() => setNpView("lyrics")}>Lyrics</button>
-              </div>
+              <button className="btn btn-icon" onClick={() => (isAu && npView === "lyrics") ? setNpView("cover") : setNowPlayingOpen(false)} aria-label={isAu && npView === "lyrics" ? "Back to player" : "Close"}>{isAu && npView === "lyrics" ? <ChevronLeft size={20} /> : <ChevronDown size={20} />}</button>
+              {isAu ? (
+                npView === "lyrics" ? (
+                  <div className="np-lyr-top"><b>{currentTrack.title}</b><i>{currentTrack.artist}</i></div>
+                ) : (
+                  <div className="np-style-tabs">
+                    <button className={`np-tab${npView !== "vinyl" ? " active" : ""}`} onClick={() => setNpView("cover")}>Cover</button>
+                    <button className={`np-tab${npView === "vinyl" ? " active" : ""}`} onClick={() => setNpView("vinyl")}>Vinyl</button>
+                  </div>
+                )
+              ) : (
+                <div className="np-style-tabs">
+                  <button className={`np-tab${npView !== "lyrics" ? " active" : ""}`} onClick={() => setNpView("cover")}>Player</button>
+                  <button className={`np-tab${npView === "lyrics" ? " active" : ""}`} onClick={() => setNpView("lyrics")}>Lyrics</button>
+                </div>
+              )}
               <button className="btn btn-icon" onClick={() => setNpMenuOpen(true)} aria-label="More"><MoreHorizontal size={20} /></button>
             </div>
           )}
@@ -6329,7 +6544,7 @@ export default function App() {
             <div className="np-lyr-head"><b>{currentTrack.title}</b><i>{currentTrack.artist}</i></div>
           )}
 
-          <div className={`np-body${design !== "classic" ? " np-body-split" : ""}`}>
+          <div className={`np-body${design === "bloom" || design === "turntable" ? " np-body-split" : ""}`}>
             {npView !== "lyrics" && (
               <button className="np-view-toggle" onClick={() => setNpView(v => v === "vinyl" ? "cover" : "vinyl")} aria-label="Switch cover / vinyl">
                 {npView === "vinyl" ? <ImageIcon size={18} /> : <Disc3 size={18} />}
@@ -6337,7 +6552,7 @@ export default function App() {
               </button>
             )}
             {repeatMode === "one" && repeatLoops > 0 && <div key={`burst${repeatLoops}`} className="loop-burst" />}
-            {design === "classic" ? renderNowPlayingStage() : (
+            {design === "classic" || design === "aurora" ? renderNowPlayingStage() : (
               <>
                 {design === "turntable" && renderUpNextPanel()}
                 <div className="np-stage">{renderNowPlayingStage()}</div>
@@ -6357,6 +6572,7 @@ export default function App() {
               <button className="np-share-pill" onClick={openShareLyrics}><Share2 size={18} /> Share lyrics</button>
             )}
             <div className={`np-meta${String(currentTrack.title || "").length > 26 ? " np-meta-long" : ""}`}>
+              {isAu && <button className={`np-heart${favorites.has(currentTrack.id) ? " on" : ""}`} onClick={() => toggleFavorite(currentTrack.id)} aria-label={favorites.has(currentTrack.id) ? "Remove from Favorites" : "Add to Favorites"}><Heart size={24} fill={favorites.has(currentTrack.id) ? "currentColor" : "none"} /></button>}
               <div className="t">
                 {currentTrack.title}
                 {currentTrack.mood && MOOD_PRESETS.find(m => m.key === currentTrack.mood) && (() => {
@@ -6380,11 +6596,13 @@ export default function App() {
                 <button
                   key={m.key}
                   className={`np-reaction-btn${currentTrack.mood === m.key ? " active" : ""}`}
-                  style={currentTrack.mood === m.key ? { borderColor: m.color, color: m.color, background: `${m.color}22` } : undefined}
+                  style={currentTrack.mood === m.key ? { borderColor: m.color, color: m.color, background: `${m.color}22`, "--mc": m.color } : { "--mc": m.color }}
                   onClick={() => reactMood(m.key)}
                   title={`React: ${m.label}`}
+                  aria-label={`Mood: ${m.label}`}
                 >
                   <m.icon size={15} />
+
                   {reactionPops.filter(p => p.mood === m.key).map(p => (
                     <m.icon key={p.popId} size={15} className="np-reaction-pop" style={{ color: m.color }} />
                   ))}
@@ -6413,6 +6631,17 @@ export default function App() {
               </div>
             </div>
           </div>
+
+          {isAu && npView !== "lyrics" && (
+            <div className="np-dock-row">
+              <button onClick={() => setNpView("lyrics")}><Mic2 size={19} /><span>Lyrics</span></button>
+              <button onClick={() => { setNowPlayingOpen(false); setPage("queue"); }}><ListMusic size={19} /><span>Queue</span></button>
+              <button onClick={() => setSleepTimerMenuOpen(true)}><Moon size={19} /><span>Sleep</span></button>
+              {currentLyrics?.lines?.length > 0
+                ? <button onClick={openShareLyrics}><Share2 size={19} /><span>Share</span></button>
+                : <button onClick={() => setNpMenuOpen(true)}><MoreHorizontal size={19} /><span>More</span></button>}
+            </div>
+          )}
 
           {tapSyncActive && (
             <div className="tap-sync-overlay">
@@ -6476,7 +6705,7 @@ export default function App() {
                 ))}
               </div>
               <div className="settings-sublabel">
-                Milestone colors <span>{REWARD_ACCENT_KEYS.filter(isAccentUnlocked).length}/{REWARD_ACCENT_KEYS.length} unlocked</span>
+                Milestone colors <span style={{ marginLeft: 8 }}>{REWARD_ACCENT_KEYS.filter(isAccentUnlocked).length}/{REWARD_ACCENT_KEYS.length} unlocked</span>
               </div>
               <div className="accent-row">
                 {REWARD_ACCENT_KEYS.map((key) => {
@@ -6881,6 +7110,33 @@ export default function App() {
         </div>
       )}
 
+      {isAu && sleepTimerMenuOpen && (
+        <div className="sheet-scrim" onClick={() => setSleepTimerMenuOpen(false)}>
+          <div className="sheet sleep-sheet" onClick={e => e.stopPropagation()} {...sheetSwipe(() => setSleepTimerMenuOpen(false))}>
+            <div className="sheet-grab" />
+            <div className="sleep-head"><span className="sleep-ic"><Moon size={20} /></span><div><b>Sleep timer</b><i>Music fades out gently when time’s up</i></div></div>
+            {(() => {
+              const on = !!sleepTimerEndAt, R = 62, C = 2 * Math.PI * R;
+              const frac = on && sleepTotalSec ? Math.max(0, Math.min(1, sleepTimerRemainingSec / sleepTotalSec)) : (sleepAtTrackEnd ? 1 : 0);
+              const mm = String(Math.floor(sleepTimerRemainingSec / 60)).padStart(2, "0"), ss = String(sleepTimerRemainingSec % 60).padStart(2, "0");
+              return (
+                <div className="sleep-ring">
+                  <svg viewBox="0 0 150 150" width="150" height="150"><circle cx="75" cy="75" r={R} className="sleep-ring-bg" /><circle cx="75" cy="75" r={R} className="sleep-ring-fg" strokeDasharray={`${C * frac} ${C}`} transform="rotate(-90 75 75)" /></svg>
+                  <div className="sleep-ring-in">{on ? <><b>{mm}:{ss}</b><span>remaining</span></> : sleepAtTrackEnd ? <><b>End</b><span>of this song</span></> : <><b>Off</b><span>pick a time</span></>}</div>
+                </div>
+              );
+            })()}
+            <div className="sleep-chips">
+              {[15, 30, 45, 60].map(min => <button key={min} className={sleepTimerEndAt && sleepTotalSec === min * 60 ? "on" : ""} onClick={() => startSleepTimer(min)}>{min} min</button>)}
+            </div>
+            <div className="sleep-row">
+              <button className={sleepAtTrackEnd ? "on" : ""} onClick={startSleepAtTrackEnd}>End of this song</button>
+              <button className="off" onClick={cancelSleepTimer}>Turn off</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {npMenuOpen && currentTrack && (
         <div className="sheet-scrim" onClick={() => setNpMenuOpen(false)}>
           <div className="sheet" {...sheetSwipe(() => setNpMenuOpen(false))}>
@@ -7265,17 +7521,17 @@ export default function App() {
                 style={{ left: p.left, background: p.color, animationDelay: p.delay, "--tx": p.tx, "--ty": p.ty, "--tr": p.tr }}
               />
             ))}
-            <div className="milestone-modal-icon-ring" style={{ background: `${milestoneModal.color}22`, border: `1px solid ${milestoneModal.color}55`, color: milestoneModal.color }}>
+            <div className="milestone-modal-icon-ring" style={{ background: `${milestoneModal.color}22`, border: `1px solid ${milestoneModal.color}55`, color: milestoneModal.color, "--mc": milestoneModal.color }}>
               <milestoneModal.icon size={38} />
             </div>
             <div className="milestone-modal-eyebrow">Milestone unlocked</div>
             <div className="milestone-modal-name">{milestoneModal.name}</div>
-            <div className="milestone-modal-sub">{milestoneModal.hours} hour{milestoneModal.hours !== 1 ? "s" : ""} of listening in Reel</div>
+            <div className="milestone-modal-sub">{isAu ? `${milestoneModal.hours} hour${milestoneModal.hours !== 1 ? "s" : ""} listened` : `${milestoneModal.hours} hour${milestoneModal.hours !== 1 ? "s" : ""} of listening in Reel`}</div>
             <div className="milestone-reward-box" style={{ borderColor: `${milestoneModal.color}55`, background: `${milestoneModal.color}12` }}>
               <span className="milestone-reward-swatch" style={{ background: milestoneModal.color, boxShadow: `0 0 18px ${milestoneModal.color}88` }} />
               <div>
-                <div className="milestone-reward-eyebrow">Reward unlocked</div>
-                <div className="milestone-reward-name">{milestoneModal.rewardName} accent color</div>
+                <div className={isAu ? "milestone-reward-name" : "milestone-reward-eyebrow"}>{isAu ? `New accent: ${milestoneModal.rewardName}` : "Reward unlocked"}</div>
+                <div className={isAu ? "milestone-reward-eyebrow sub" : "milestone-reward-name"}>{isAu ? "Unlocked for Settings → Colors" : `${milestoneModal.rewardName} accent color`}</div>
               </div>
             </div>
             {milestoneModal.extra > 0 && (
@@ -7286,7 +7542,8 @@ export default function App() {
             <div className="milestone-modal-actions">
               <button className="btn" onClick={() => setMilestoneModal(null)}>Later</button>
               <button
-                className="btn btn-accent"
+                className="btn btn-accent milestone-use"
+                style={isAu ? { background: milestoneModal.color } : undefined}
                 onClick={() => { setAccentKey(milestoneModal.reward); setMilestoneModal(null); }}
               >
                 Use {milestoneModal.rewardName} now

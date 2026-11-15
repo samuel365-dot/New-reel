@@ -25,3 +25,10 @@ credit-aware ranked search with highlight, one title cleaner and a correct "Appl
   wake the app's WebView and CPU first, so resuming after minutes of pause works with the screen off.
 - Finished from the review: activity (history, counts, position) saved in its own small file and the library file only
   rewritten when it changes (P-13), lyric highlight reads the audio clock (P-20), genre chips in Explore (B7), "NEW" badge (B8).
+
+## Aurora review fixes
+- Aurora: now-playing equalizer bars (.au-eq) styled; unused AuMosaic removed; duplicate .pb-fav / .mfy-chips rules merged;
+  milestone "Later" button shown again; mini-player progress line spans the full bar and is clipped to its rounded corners.
+- Notification player: progress bar no longer jumps back when the cover finishes loading or a button redraws it
+  (position is advanced by the time since the app last sent it); notification is only "ongoing" while playing, so a
+  paused player can be swiped away (the delete intent now works); collapsed view shows previous / play-pause / next.
