@@ -62,6 +62,7 @@ public class ReelPlaybackService extends Service {
         public long positionMs = 0;
         public boolean playing = false;
         public boolean liked = false;
+        public long updatedAt = 0; // SystemClock.elapsedRealtime() when positionMs was written
     }
 
     private static final Object LOCK = new Object();
@@ -96,6 +97,7 @@ public class ReelPlaybackService extends Service {
             STATE.positionMs = Math.max(0, positionMs);
             STATE.playing = playing;
             STATE.liked = liked;
+            STATE.updatedAt = SystemClock.elapsedRealtime();
             if (clearArt) STATE.art = null;
         }
     }
@@ -303,7 +305,13 @@ public class ReelPlaybackService extends Service {
         synchronized (LOCK) {
             s.artKey = STATE.artKey; s.title = STATE.title; s.artist = STATE.artist; s.album = STATE.album;
             s.art = STATE.art; s.durationMs = STATE.durationMs; s.positionMs = STATE.positionMs;
-            s.playing = STATE.playing; s.liked = STATE.liked;
+            s.playing = STATE.playing; s.liked = STATE.liked; s.updatedAt = STATE.updatedAt;
+        }
+        // The state may be redrawn long after the app wrote it (the cover finished decoding, a button was pressed).
+        // While playing, move the position forward by the time that has passed, or the bar would jump backwards.
+        if (s.playing && s.updatedAt > 0) {
+            s.positionMs += Math.max(0, SystemClock.elapsedRealtime() - s.updatedAt);
+            if (s.durationMs > 0) s.positionMs = Math.min(s.positionMs, s.durationMs);
         }
 
         // ---- media session (lock screen, Android 13+ media controls, headset buttons)
@@ -344,7 +352,7 @@ public class ReelPlaybackService extends Service {
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
-            .setOngoing(true);
+            .setOngoing(s.playing);
 
         nb.addAction(s.liked ? R.drawable.ic_heart_filled : R.drawable.ic_heart_outline,
             s.liked ? "Remove from favorites" : "Add to favorites", actionIntent(ACTION_LIKE, 1));
@@ -359,7 +367,7 @@ public class ReelPlaybackService extends Service {
 
         nb.setStyle(new MediaStyle()
             .setMediaSession(session.getSessionToken())
-            .setShowActionsInCompactView(0, 2, 3));
+            .setShowActionsInCompactView(1, 2, 3));
 
         Notification n = nb.build();
         try {
