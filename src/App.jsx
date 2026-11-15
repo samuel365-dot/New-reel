@@ -2428,7 +2428,7 @@ function MobileRows({ tracks, row, minShown = 0 }) {
     io.observe(endRef.current);
     return () => io.disconnect();
   }, [shown, tracks.length]);
-  return <>{tracks.slice(0, shown).map(row)}{shown < tracks.length && <div ref={endRef} style={{ height: 1 }} />}</>;
+  return <>{tracks.slice(0, shown).map(row)}{shown < tracks.length && <div ref={endRef} style={{ height: 1, gridColumn: "1 / -1" }} />}</>;
 }
 
 const TrackThumb = React.memo(function TrackThumb({ track, isPlaying, size = 32 }) {
@@ -5003,6 +5003,31 @@ export default function App() {
     {
       visibleSelRef.current = tracks.map(x => x.id);
       const selecting = selectedIds.size > 0;
+      if (isAu && page === "library" && effectiveTrackView === "grid") {
+        return (
+          <div className="track-grid au-grid">
+            <MobileRows tracks={tracks} minShown={auJump && context === "library" ? auJump.n : 0} row={t => {
+              const playing = t.id === currentTrackId;
+              const selected = selectedIds.has(t.id);
+              const art = lightArt(t.art);
+              return (
+                <div key={t.id} data-tid={t.id}
+                  className={`track-card${playing ? " playing" : ""}${selected ? " selected" : ""}`}
+                  onClick={() => { if (!lpFiredRef.current && selectedIds.size === 0) setSelCtx(context || "library"); rowTap(t, queueContext || tracks.map(x => x.id)); }}
+                  {...lpProps(t, context)}
+                >
+                  <div className="track-card-cover" style={{ background: art ? `url(${art}) center/cover` : coverGradient(t.id) }}>
+                    {selecting && <SelCircle on={selected} />}
+                    {playing && isPlaying && !selecting && <span className="track-card-eq"><span className="au-eq" aria-hidden="true"><u /><u /><u /></span></span>}
+                  </div>
+                  <div className="track-card-title">{t.title}</div>
+                  <div className="track-card-artist">{t.artist}</div>
+                </div>
+              );
+            }} />
+          </div>
+        );
+      }
       return (
         <div className="m-list">
           <MobileRows tracks={tracks} minShown={auJump && context === "library" ? auJump.n : 0} row={t => {

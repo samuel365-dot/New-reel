@@ -26,22 +26,28 @@ export function dominantColors(img) {
     x.drawImage(img, 0, 0, 32, 32);
     const px = x.getImageData(0, 0, 32, 32).data;   // throws on a tainted canvas
     const buckets = Array.from({ length: 12 }, () => ({ n: 0, h: 0, s: 0, l: 0 }));
-    let lum = 0, count = 0;
+    let lum = 0, count = 0, ar = 0, ag = 0, ab = 0;
     for (let i = 0; i < px.length; i += 4) {
       if (px[i + 3] < 200) continue;
       const [h, s, l] = rgbToHsl(px[i], px[i + 1], px[i + 2]);
-      lum += l; count++;
+      lum += l; count++; ar += px[i]; ag += px[i + 1]; ab += px[i + 2];
       if (l > 0.92 || l < 0.08 || s < 0.22) continue;  // near-white, near-black, grey
       const b = buckets[Math.floor(h / 30) % 12];
       b.n += s * (1 - Math.abs(l - 0.5)); b.h += h; b.s += s; b.l += l; b.c = (b.c || 0) + 1;
     }
     const ranked = buckets.map((b, i) => ({ ...b, i })).filter((b) => b.c > 0).sort((a, b) => b.n - a.n);
-    if (!ranked.length || !count) return null;
+    if (!count) return null;
+    const css = (o) => `hsl(${o.h} ${Math.round(o.s * 100)}% ${Math.round(o.l * 100)}%)`;
+    if (!ranked.length) {
+      // black-and-white / sepia cover: no colour to pick, so follow its own tone (grey, with any slight tint kept)
+      const [ah, as, al] = rgbToHsl(ar / count, ag / count, ab / count);
+      const base = { h: Math.round(ah), s: Math.min(0.22, as), l: Math.min(0.55, Math.max(0.3, al)) };
+      return { primary: css(base), secondary: css({ ...base, l: Math.max(0.2, base.l - 0.14) }), isLight: lum / count > 0.62 };
+    }
     const mk = (b) => ({ h: Math.round(b.h / b.c), s: Math.min(0.85, Math.max(0.45, b.s / b.c)), l: Math.min(0.6, Math.max(0.32, b.l / b.c)) });
     const p = mk(ranked[0]);
     const second = ranked.find((b) => { const d = Math.abs(b.i - ranked[0].i); return Math.min(d, 12 - d) >= 2; });
     const q = second ? mk(second) : { h: (p.h + 40) % 360, s: p.s, l: Math.max(0.28, p.l - 0.1) };
-    const css = (o) => `hsl(${o.h} ${Math.round(o.s * 100)}% ${Math.round(o.l * 100)}%)`;
     return { primary: css(p), secondary: css(q), isLight: lum / count > 0.62 };
   } catch { return null; }
 }

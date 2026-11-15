@@ -110,6 +110,24 @@ public class ReelPlaybackService extends Service {
         }
     }
 
+    /**
+     * A play / pause press arrived (notification button, lock screen, headset). The app answers a moment later, and
+     * with the screen off that can take seconds. Until then the notification must not keep showing the old
+     * "playing" state, or its bar runs on and then jumps back when the app reports the real position.
+     * So the position is frozen (or restarted) right now, from the clock.
+     */
+    private static void applyTransport(boolean playing) {
+        synchronized (LOCK) {
+            long now = SystemClock.elapsedRealtime();
+            if (STATE.playing && STATE.updatedAt > 0) {
+                STATE.positionMs += Math.max(0, now - STATE.updatedAt);
+                if (STATE.durationMs > 0) STATE.positionMs = Math.min(STATE.positionMs, STATE.durationMs);
+            }
+            STATE.playing = playing;
+            STATE.updatedAt = now;
+        }
+    }
+
     private static boolean hasState() {
         synchronized (LOCK) {
             return STATE.playing || STATE.title.length() > 0;
@@ -182,8 +200,8 @@ public class ReelPlaybackService extends Service {
         }
         session = new MediaSessionCompat(this, "ReelSession");
         session.setCallback(new MediaSessionCompat.Callback() {
-            @Override public void onPlay() { emit("play", -1); }
-            @Override public void onPause() { emit("pause", -1); }
+            @Override public void onPlay() { applyTransport(true); emit("play", -1); render(); }
+            @Override public void onPause() { applyTransport(false); emit("pause", -1); render(); }
             @Override public void onSkipToNext() { emit("next", -1); }
             @Override public void onSkipToPrevious() { emit("prev", -1); }
             @Override public void onSeekTo(long pos) { emit("seekto", pos); }
@@ -207,8 +225,8 @@ public class ReelPlaybackService extends Service {
             if (!hasState()) closeNow(); // the app was not running: there is nothing to control
             return START_NOT_STICKY;
         }
-        if (ACTION_PLAY.equals(action)) emit("play", -1);
-        else if (ACTION_PAUSE.equals(action)) emit("pause", -1);
+        if (ACTION_PLAY.equals(action)) { applyTransport(true); emit("play", -1); }
+        else if (ACTION_PAUSE.equals(action)) { applyTransport(false); emit("pause", -1); }
         else if (ACTION_NEXT.equals(action)) emit("next", -1);
         else if (ACTION_PREV.equals(action)) emit("prev", -1);
         else if (ACTION_LIKE.equals(action)) emit("like", -1);

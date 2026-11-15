@@ -339,8 +339,10 @@ export function HealthPage({ onBack, library, lyricsMap, playCounts, onRemoveIds
         const extra = dups.reduce((n, g) => n + g.tracks.length - 1, 0);
         const rows = [
           { k: "dups", title: "Duplicate songs", sub: `${extra} song${extra !== 1 ? "s" : ""} appear more than once`, n: dups.length, tone: "amber", Icon: CopyIcon },
-          { k: "info", title: "Missing info", sub: `${infoList.length} song${infoList.length !== 1 ? "s" : ""} without artist, album or cover`, n: infoList.length, tone: "blue", Icon: TagIcon },
-          { k: "rawTitles", title: "Messy titles", sub: `${gaps.rawTitles.length} song${gaps.rawTitles.length !== 1 ? "s" : ""} with extras in the title`, n: gaps.rawTitles.length, tone: "teal", Icon: TextCursorInput },
+          { k: "unknownArtist", title: "No artist", sub: `${gaps.unknownArtist.length} song${gaps.unknownArtist.length !== 1 ? "s" : ""} without an artist`, n: gaps.unknownArtist.length, tone: "blue", Icon: UserX },
+          { k: "noAlbum", title: "No album", sub: `${gaps.noAlbum.length} song${gaps.noAlbum.length !== 1 ? "s" : ""} without an album`, n: gaps.noAlbum.length, tone: "teal", Icon: Disc3 },
+          { k: "noCover", title: "No cover art", sub: `${gaps.noCover.length} song${gaps.noCover.length !== 1 ? "s" : ""} without a cover`, n: gaps.noCover.length, tone: "pink", Icon: ImageOff },
+          { k: "rawTitles", title: "Messy titles", sub: `${gaps.rawTitles.length} song${gaps.rawTitles.length !== 1 ? "s" : ""} with extras in the title`, n: gaps.rawTitles.length, tone: "green", Icon: TextCursorInput },
           { k: "missing", title: "Missing files", sub: `${missing.length} song${missing.length !== 1 ? "s" : ""} can’t be found`, n: missing.length, tone: "red", Icon: AlertTriangle },
           { k: "short", title: "Very short clips", sub: `${shortClips.length} song${shortClips.length !== 1 ? "s" : ""} under 30 seconds`, n: shortClips.length, tone: "purple", Icon: AudioLines },
         ].filter(r => r.n > 0);

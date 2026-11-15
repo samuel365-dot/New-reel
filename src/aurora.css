@@ -28,7 +28,6 @@
 }
 .design-aurora .mobile-tab { position: relative; border-radius: 24px; font-size: 11px; font-weight: 600; color: var(--text-dim); }
 .design-aurora .mobile-tab.active { background: var(--accent-dim); color: var(--accent); }
-.design-aurora .mobile-tab.active::after { content: ""; position: absolute; left: 50%; bottom: 4px; width: 18px; height: 3px; margin-left: -9px; border-radius: 3px; background: var(--accent); }
 
 /* ---------------- floating mini player ---------------- */
 .reel-root.is-mobile.design-aurora .player-bar {
@@ -295,11 +294,11 @@
 .design-aurora .m-card-trio { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
 .design-aurora .m-card-trio .m-card { padding: 14px 14px 12px; border-radius: 22px; }
 .design-aurora .m-card-value.sm { display: block; margin-top: 6px; font-size: 32px; font-weight: 800; letter-spacing: -.03em; }
-.design-aurora .m-card-chart { padding: 18px; margin-top: 12px; border-radius: 26px; }
-.design-aurora .m-chart-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; }
+.design-aurora .m-card-chart { padding: 14px 16px 12px; margin-top: 12px; border-radius: 24px; gap: 0; }
+.design-aurora .m-chart-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
 .design-aurora .m-card-title { font-size: 22px; font-weight: 800; letter-spacing: -.03em; }
 .design-aurora .m-best { font-size: 14px; color: var(--text-dim); }
-.design-aurora .m-bars { display: flex; align-items: flex-end; gap: 8px; height: 150px; }
+.design-aurora .m-bars { display: flex; align-items: flex-end; gap: 8px; height: 92px; }
 .design-aurora .m-bar-wrap { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 8px; }
 .design-aurora .m-bar { width: 100%; flex: none; border-radius: 10px; background: color-mix(in srgb, var(--accent) 38%, transparent); }
 .design-aurora .m-bar.best { background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 70%, #e05a3a)); box-shadow: 0 0 22px color-mix(in srgb, var(--accent) 55%, transparent); }
@@ -460,8 +459,8 @@
 /* lyrics view */
 .design-aurora .now-playing.np-m.np-v-lyrics .lyrics-line { text-align: left !important; font-size: 27px !important; letter-spacing: -.02em; color: color-mix(in srgb, var(--text) 32%, transparent) !important; transition: color .3s, font-size .3s, text-shadow .3s; }
 .design-aurora .now-playing.np-m.np-v-lyrics .lyrics-line.active { color: var(--text) !important; font-size: 32px !important; text-shadow: 0 0 30px color-mix(in srgb, var(--accent) 45%, transparent); }
-.design-aurora .now-playing.np-m.np-v-lyrics .np-footer { position: relative; margin: 0 14px calc(14px + env(safe-area-inset-bottom)); padding: 16px 14px 14px; border-radius: 30px; background: var(--au-bar); border: 1px solid var(--au-line); backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px); }
-.design-aurora .np-v-lyrics .np-share-pill { position: absolute; top: -56px; left: 50%; transform: translateX(-50%); background: var(--accent); color: var(--au-ink); border: 0; box-shadow: 0 10px 26px -10px var(--accent-glow); }
+.design-aurora .now-playing.np-m.np-v-lyrics .np-footer { position: relative; margin: 0 12px calc(10px + env(safe-area-inset-bottom)); padding: 10px 12px 6px; gap: 4px; border-radius: 26px; background: var(--au-bar); border: 1px solid var(--au-line); backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px); }
+.design-aurora .np-v-lyrics .np-share-pill { position: absolute; top: -50px; left: 50%; transform: translateX(-50%); background: var(--accent); color: var(--au-ink); border: 0; box-shadow: 0 10px 26px -10px var(--accent-glow); }
 @media (max-height: 600px) {
   .reel-root.is-mobile.design-aurora .now-playing.np-m { overflow-y: auto; }
   .reel-root.is-mobile.design-aurora .np-m .pb-play { width: 56px !important; height: 56px !important; }
@@ -568,7 +567,7 @@
 /* ---- detail hero: no dark scrim, no rounded edge — the colour simply fades out ---- */
 .design-aurora .playlist-hero-content { background: none !important; }
 .reel-root.is-mobile.design-aurora .playlist-hero { border-radius: 0; }
-.reel-root.is-mobile.design-aurora .main-col.au-hero-page .playlist-hero-backdrop { inset: 0; height: auto; opacity: .85; filter: saturate(1.15) brightness(1.12); -webkit-mask-image: linear-gradient(#000 15%, transparent 100%); mask-image: linear-gradient(#000 15%, transparent 100%); }
+.reel-root.is-mobile.design-aurora .main-col.au-hero-page .playlist-hero-backdrop { inset: 0; height: auto; opacity: .85; filter: blur(18px) saturate(1.15) brightness(.92); -webkit-mask-image: linear-gradient(#000 15%, transparent 100%); mask-image: linear-gradient(#000 15%, transparent 100%); }
 
 /* ---- now-playing equalizer on rows (Recent, Queue) ---- */
 .design-aurora .au-eq { display: inline-flex; align-items: flex-end; gap: 3px; width: 18px; height: 16px; flex: none; margin-left: auto; }
@@ -577,3 +576,52 @@
 .design-aurora .au-eq u:nth-child(2) { animation: eq2 .75s ease-in-out infinite; }
 .design-aurora .au-eq u:nth-child(3) { animation: eq3 1.05s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .design-aurora .au-eq u { animation: none; } }
+
+/* ---- lyrics view: a slimmer control panel so more lyrics are visible ---- */
+.design-aurora .np-v-lyrics .np-reaction-btn { max-width: 36px; }
+.design-aurora .np-v-lyrics .np-reaction-btn svg { width: 16px; height: 16px; }
+.design-aurora .np-v-lyrics .np-seek { gap: 8px; }
+.design-aurora .np-v-lyrics .np-seek .waveform-wrap { height: 22px; }
+.reel-root.is-mobile.design-aurora .now-playing.np-m.np-v-lyrics .np-footer .pb-play { width: 52px !important; height: 52px !important; }
+.reel-root.is-mobile.design-aurora .now-playing.np-m.np-v-lyrics .np-footer .pb-play svg { width: 22px; height: 22px; }
+.reel-root.is-mobile.design-aurora .now-playing.np-m.np-v-lyrics .np-footer .pb-ctrl { padding: 4px; }
+.reel-root.is-mobile.design-aurora .now-playing.np-m.np-v-lyrics .np-footer .pb-ctrl svg { width: 19px; height: 19px; }
+
+/* ---- cover view: bigger artwork, sung line a little lower ----
+   Aurora has no Vinyl button over the artwork (the Cover/Vinyl switch is in the top bar), so the room that the
+   shared rules reserve for it is given back to the cover. */
+.reel-root.is-mobile.design-aurora .now-playing:not(.np-v-lyrics) .cover-stage { padding-top: 4px; padding-bottom: 4px; }
+.reel-root.is-mobile.design-aurora .now-playing:not(.np-v-lyrics) .cover-art-big { width: max(150px, min(88vw, 390px, calc(100cqh - 20px))); height: max(150px, min(88vw, 390px, calc(100cqh - 20px))); }
+.reel-root.is-mobile.design-aurora .now-playing:not(.np-v-lyrics) .cover-art-flip:has(.live-ly) .cover-art-big { width: max(150px, min(88vw, 390px, calc(100cqh - 112px))); height: max(150px, min(88vw, 390px, calc(100cqh - 112px))); }
+.reel-root.is-mobile.design-aurora .live-ly { margin-top: 30px; }
+
+/* ---- Library cover grid (the grid button next to the list button) ---- */
+.reel-root.is-mobile.design-aurora .track-grid.au-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 14px; padding: 6px 2px 0; }
+.design-aurora .au-grid .track-card-cover { border-radius: 24px; overflow: hidden; }
+.design-aurora .au-grid .track-card-title { margin-top: 10px; font-size: 14.5px; font-weight: 700; }
+.design-aurora .au-grid .track-card-artist { font-size: 12.5px; }
+.design-aurora .au-grid .track-card .sel-circle { position: absolute; left: 10px; top: 10px; background: rgba(0, 0, 0, .45); }
+.design-aurora .au-grid .track-card-eq { left: 10px; top: 10px; }
+.design-aurora .au-grid .track-card-eq .au-eq { margin: 0; width: 16px; height: 14px; }
+.design-aurora .au-grid .track-card-eq .au-eq u { background: var(--au-ink, #111); }
+
+/* ---- Stats: Track of the week icon (mobile.css svg:first/last-child rules pushed the trophy right and dimmed it) ---- */
+.design-aurora .m-wide-btn { height: auto; min-height: 66px; padding: 10px 16px; font-size: inherit; }
+.design-aurora .m-wide-ic svg { margin: 0 !important; color: var(--accent) !important; }
+.design-aurora .m-wide-btn > svg:last-child { margin-left: 0; color: var(--text-faint); flex: none; }
+
+/* ---- Library health: one colour per category ---- */
+.design-aurora .hl2-ico.t-green { background: rgba(110, 200, 110, .16); color: #7BD67B; }
+.design-aurora .hl2-ico.t-pink { background: rgba(242, 112, 156, .16); color: #F2709C; }
+
+/* ---- playlist / artist / smart / mood pages: the cover colours melt into the page instead of ending on a straight line ----
+   The backdrop used to be scaled up 1.2x (so the mask still left ~10% colour at the hero's bottom edge, and the
+   hero clips there = a hard line). Now it is not scaled, bleeds past the sides/top only, and fades to nothing exactly
+   at the bottom of a hero that has some room under the buttons. */
+.reel-root.is-mobile.design-aurora .playlist-hero { overflow: hidden; padding-bottom: 56px; margin-bottom: -14px; }
+.reel-root.is-mobile.design-aurora .main-col.au-hero-page .playlist-hero-backdrop {
+  inset: -28px -28px 0 -28px; height: auto; transform: none; opacity: .9;
+  filter: blur(18px) saturate(1.15) brightness(.92);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 42%, rgba(0, 0, 0, .55) 68%, rgba(0, 0, 0, .18) 88%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 42%, rgba(0, 0, 0, .55) 68%, rgba(0, 0, 0, .18) 88%, transparent 100%);
+}

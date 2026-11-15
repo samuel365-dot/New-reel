@@ -32,3 +32,14 @@ credit-aware ranked search with highlight, one title cleaner and a correct "Appl
 - Notification player: progress bar no longer jumps back when the cover finishes loading or a button redraws it
   (position is advanced by the time since the app last sent it); notification is only "ongoing" while playing, so a
   paused player can be swiped away (the delete intent now works); collapsed view shows previous / play-pause / next.
+
+## Round 3
+- Notification player: play/pause presses now freeze/restart the bar immediately (applyTransport) so it no longer runs on and jumps back when the app reports the real position.
+- Lyrics view: slimmer bottom panel (smaller mood buttons, seek, play).
+- Library: the list / grid buttons now work. Grid = 2-column cover grid (Library page only); list was already the active default.
+- Now Playing (cover): bigger artwork, sung line lower.
+- Playlist / artist (and smart / mood) pages: hero blur restored and the cover colours now fade into the page instead of ending on a straight line.
+- Bottom tab bar: removed the small line under the active label.
+- Share cards: black-and-white / sepia covers now use the cover's own grey tones instead of a random hue.
+- Stats: shorter Daily activity card; Track of the week icon fixed (generic svg:first/last-child rules in mobile.css were pushing and dimming it).
+- Library health: "Missing info" split into No artist / No album / No cover art; colours per category.
