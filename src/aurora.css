@@ -457,8 +457,10 @@
 .design-aurora .tonearm-head { background: #6a6a72; }
 
 /* lyrics view */
-.design-aurora .now-playing.np-m.np-v-lyrics .lyrics-line { text-align: left !important; font-size: 27px !important; letter-spacing: -.02em; color: color-mix(in srgb, var(--text) 32%, transparent) !important; transition: color .3s, font-size .3s, text-shadow .3s; }
-.design-aurora .now-playing.np-m.np-v-lyrics .lyrics-line.active { color: var(--text) !important; font-size: 32px !important; text-shadow: 0 0 30px color-mix(in srgb, var(--accent) 45%, transparent); }
+/* every line has the SAME size and wraps the same way; the sung line is only scaled (a transform never re-flows the list, so nothing jumps) */
+.design-aurora .now-playing.np-m.np-v-lyrics .lyrics-line { text-align: left !important; font-size: 20px !important; line-height: 1.25 !important; font-weight: 700 !important; letter-spacing: -.01em; transform-origin: 0 50%; transform: scale(1); will-change: transform; color: color-mix(in srgb, var(--text) 34%, transparent) !important; transition: color .35s ease, transform .5s cubic-bezier(.22, .8, .25, 1), text-shadow .35s ease; }
+.design-aurora .now-playing.np-m.np-v-lyrics .lyrics-line.active { color: var(--text) !important; transform: scale(1.07); text-shadow: 0 0 26px color-mix(in srgb, var(--accent) 40%, transparent); }
+.design-aurora .now-playing.np-m.np-v-lyrics .lyrics-list { padding-right: 34px !important; }
 .design-aurora .now-playing.np-m.np-v-lyrics .np-footer { position: relative; margin: 0 12px calc(10px + env(safe-area-inset-bottom)); padding: 10px 12px 6px; gap: 4px; border-radius: 26px; background: var(--au-bar); border: 1px solid var(--au-line); backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px); }
 .design-aurora .np-v-lyrics .np-share-pill { position: absolute; top: -50px; left: 50%; transform: translateX(-50%); background: var(--accent); color: var(--au-ink); border: 0; box-shadow: 0 10px 26px -10px var(--accent-glow); }
 @media (max-height: 600px) {

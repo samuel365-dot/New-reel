@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ChevronLeft, Check, X, Loader2, Play, Search, Trash2, Wand2, Lock, Upload, Download, AlertTriangle, Music2, ChevronRight, ExternalLink, Sparkles, Cloud, Copy, Copy as CopyIcon, UserX, Disc3, ImageOff, TextCursorInput, FileX } from "lucide-react";
 import { AudioLines, Tag as TagIcon } from "lucide-react";
 import { Share } from "@capacitor/share";
@@ -27,7 +28,10 @@ const fmtDur = (s) => { s = Math.round(s || 0); return `${Math.floor(s / 60)}:${
 const unknownArtist = (a) => !a || /^unknown/i.test(a);
 
 export function Sheet({ title, sub, onClose, children, footer }) {
-  return (
+  // Drawn at the app root, not inside the page: a page is its own stacking layer, so a sheet inside it would sit
+  // UNDER the tab bar and mini player (and not dim them) instead of covering the whole screen.
+  const host = typeof document !== "undefined" ? (document.querySelector(".reel-root") || document.body) : null;
+  const node = (
     <div className="sheet-scrim" onClick={onClose}>
       <div className="sheet on-sheet" onClick={e => e.stopPropagation()}>
         <div className="sheet-grab" />
@@ -40,6 +44,7 @@ export function Sheet({ title, sub, onClose, children, footer }) {
       </div>
     </div>
   );
+  return host ? createPortal(node, host) : node;
 }
 
 export function NeedsFeature({ name, what, onOpenSettings }) {
